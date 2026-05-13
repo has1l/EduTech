@@ -24,7 +24,7 @@ const DIFFICULTY_COLOR: Record<number, string> = {
 
 type NodeState = "current" | "next" | "locked";
 
-function getNodeState(index: number, total: number): NodeState {
+function getNodeState(index: number): NodeState {
   if (index === 0) return "current";
   if (index <= 1) return "next";
   return "locked";
@@ -33,15 +33,13 @@ function getNodeState(index: number, total: number): NodeState {
 function PathNode({
   task,
   index,
-  total,
   offset,
 }: {
   task: Task;
   index: number;
-  total: number;
   offset: number;
 }) {
-  const state = getNodeState(index, total);
+  const state = getNodeState(index);
   const isCurrent = state === "current";
   const isLocked = state === "locked";
 
@@ -128,9 +126,8 @@ function Connector({
 }
 
 export default function SessionPage() {
-  const { data: me } = useMe();
+  useMe();
   const { data: session, isLoading } = useTodaySession();
-  const firstName = me?.name?.split(" ")[0] ?? "ученик";
   const tasks = session?.tasks ?? [];
   const totalMin = tasks.reduce((s, t) => s + t.difficulty * 2, 0);
 
@@ -185,7 +182,6 @@ export default function SessionPage() {
                     <PathNode
                       task={task}
                       index={i}
-                      total={tasks.length}
                       offset={offset}
                     />
                     {!isLast && (

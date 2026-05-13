@@ -61,7 +61,8 @@ async def stream_socratic(
 
     messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
 
-    if task.question_image_url:
+    # Send image only on first turn — base64 URIs are 30-80k tokens each
+    if task.question_image_url and not dialogue.messages:
         messages.append({
             "role": "user",
             "content": [

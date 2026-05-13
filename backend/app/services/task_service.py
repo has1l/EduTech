@@ -95,12 +95,7 @@ async def get_today_session(user: User, db: AsyncSession, redis: Redis) -> Today
         tasks = list(available.all())
 
         if len(tasks) < 5:
-            try:
-                await fetch_and_store_tasks(db, redis, needed=15)
-                await db.commit()
-            except Exception as exc:
-                log.exception("bank_ege fetch failed: %s", exc)
-                await db.rollback()
+            await fetch_and_store_tasks(redis, needed=15)
             available = await db.scalars(
                 select(Task).where(Task.id.notin_(done_ids)).limit(5)
             )

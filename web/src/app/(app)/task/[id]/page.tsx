@@ -162,7 +162,7 @@ export default function TaskPage() {
       <main className="mx-auto max-w-2xl space-y-5 px-6 py-10">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Link href="/today" className="text-muted transition hover:text-fg">
+          <Link href="/session" className="text-muted transition hover:text-fg">
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <span className="text-sm text-muted">
@@ -222,7 +222,7 @@ export default function TaskPage() {
           <section className="rounded-3xl border border-success/40 bg-success/10 p-5 text-center">
             <p className="text-lg font-bold text-success">Верно!</p>
             <p className="mt-1 text-sm text-muted">Отличная работа</p>
-            <Button className="mt-4" onClick={() => router.push("/today")}>
+            <Button className="mt-4" onClick={() => router.push("/session")}>
               Следующее задание
             </Button>
           </section>
@@ -311,7 +311,7 @@ export default function TaskPage() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => router.push("/today")}
+                onClick={() => router.push("/session")}
               >
                 Следующее задание
               </Button>

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/today", label: "Сегодня" },
+  { href: "/today", label: "Курсы" },
   { href: "/progress", label: "Прогресс" },
   { href: "/theory", label: "Теория" },
 ] as const;
@@ -33,7 +33,10 @@ export function AppNav() {
         </Link>
         <nav className="flex flex-1 items-center gap-1">
           {TABS.map((t) => {
-            const active = pathname.startsWith(t.href);
+            const active =
+              pathname.startsWith(t.href) ||
+              (t.href === "/today" &&
+                (pathname.startsWith("/session") || pathname.startsWith("/task")));
             return (
               <Link
                 key={t.href}

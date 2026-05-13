@@ -55,6 +55,12 @@ export default function TaskPage() {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
 
+      if (!res.ok) {
+        setStreamingText("Ошибка: не удалось запустить диалог. Попробуй ещё раз.");
+        setStreaming(false);
+        return;
+      }
+
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buf = "";

@@ -51,7 +51,7 @@ export default function TaskPage() {
     setStreamingText("");
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/dialogue/${dId}/stream`, {
+      const res = await fetch(`${API_URL}/dialogue/${dId}/stream`, {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
 

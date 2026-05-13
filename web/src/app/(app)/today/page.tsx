@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
+import { MathText } from "@/components/math-text";
 import { useMe, useTodaySession } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +62,7 @@ export default function TodayPage() {
               >
                 <div className="min-w-0 flex-1 pr-3">
                   <div className="truncate font-semibold text-sm">
-                    {task.question_text}
+                    <MathText text={task.question_text} />
                   </div>
                   <div
                     className={cn(

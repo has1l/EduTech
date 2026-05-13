@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { BookOpen, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
+import { MathText } from "@/components/math-text";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -174,7 +175,9 @@ export default function TaskPage() {
 
         {/* Question */}
         <section className="rounded-3xl border border-border p-6">
-          <p className="text-base leading-relaxed">{task.question_text}</p>
+          <p className="text-base leading-relaxed">
+            <MathText text={task.question_text} />
+          </p>
         </section>
 
         {/* Answer input */}

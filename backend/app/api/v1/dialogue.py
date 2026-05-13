@@ -1,9 +1,12 @@
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
+from sqlalchemy.orm.attributes import flag_modified
 from sse_starlette.sse import EventSourceResponse
 
+from app.core.db import SessionLocal
 from app.core.deps import CurrentUser, DbSession
+from app.models.dialogue import AIDialogue
 from app.schemas.dialogue import GiveUpResult, ReplyIn
 from app.services.ai_service import stream_socratic
 from app.services.task_service import load_dialogue_context
@@ -31,11 +34,14 @@ async def stream_dialogue(
             yield event
 
         if full_text:
-            dialogue.messages = list(dialogue.messages) + [
-                {"role": "assistant", "content": full_text}
-            ]
-            dialogue.hint_level = min(dialogue.hint_level + 1, 3)
-            await db.commit()
+            # Use a fresh session — the request session closes before this generator runs
+            async with SessionLocal() as session:
+                d = await session.get(AIDialogue, dialogue.id)
+                if d is not None:
+                    d.messages = list(d.messages) + [{"role": "assistant", "content": full_text}]
+                    d.hint_level = min(d.hint_level + 1, 3)
+                    flag_modified(d, "messages")
+                    await session.commit()
 
     return EventSourceResponse(generator())
 
@@ -53,6 +59,7 @@ async def reply_dialogue(
 
     dialogue = ctx[0]
     dialogue.messages = list(dialogue.messages) + [{"role": "user", "content": body.text}]
+    flag_modified(dialogue, "messages")
     await db.commit()
     return {"ok": True}
 

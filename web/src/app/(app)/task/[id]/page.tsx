@@ -50,13 +50,18 @@ export default function TaskPage() {
     streamBuffer.current = "";
     setStreamingText("");
 
+    const streamUrl = `${API_URL}/dialogue/${dId}/stream`;
+    console.log("[stream] fetching", streamUrl);
+
     try {
-      const res = await fetch(`${API_URL}/dialogue/${dId}/stream`, {
+      const res = await fetch(streamUrl, {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
 
+      console.log("[stream] status", res.status);
+
       if (!res.ok) {
-        setStreamingText("Ошибка: не удалось запустить диалог. Попробуй ещё раз.");
+        setStreamingText(`Ошибка ${res.status}: не удалось запустить диалог.`);
         setStreaming(false);
         return;
       }

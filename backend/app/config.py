@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +12,16 @@ class Settings(BaseSettings):
 
     database_url: str
     redis_url: str
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def force_asyncpg(cls, v: str) -> str:
+        # Railway injects plain postgresql:// — convert to asyncpg driver
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql://", 1)
+        if v.startswith("postgresql://"):
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     jwt_secret: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"

@@ -28,7 +28,7 @@ export default function TaskPage() {
   const tokens = useAuth((s) => s.tokens);
   const { data: task, isLoading } = useTask(id);
 
-  const [selected, setSelected] = useState<string | null>(null);
+  const [answer, setAnswer] = useState("");
   const [phase, setPhase] = useState<Phase>("question");
   const [dialogueId, setDialogueId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -51,14 +51,11 @@ export default function TaskPage() {
     setStreamingText("");
 
     const streamUrl = `${API_URL}/dialogue/${dId}/stream`;
-    console.log("[stream] fetching", streamUrl);
 
     try {
       const res = await fetch(streamUrl, {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
-
-      console.log("[stream] status", res.status);
 
       if (!res.ok) {
         setStreamingText(`Ошибка ${res.status}: не удалось запустить диалог.`);
@@ -110,11 +107,11 @@ export default function TaskPage() {
   }
 
   async function submitAnswer() {
-    if (!selected || !task) return;
+    if (!answer.trim() || !task) return;
     setPhase("submitting");
     try {
       const { data } = await api.post<AnswerResult>(`/tasks/${task.id}/answer`, {
-        answer: selected,
+        answer: answer.trim(),
       });
       if (data.correct) {
         setPhase("correct");
@@ -180,42 +177,27 @@ export default function TaskPage() {
           <p className="text-base leading-relaxed">{task.question_text}</p>
         </section>
 
-        {/* Options */}
-        {task.options && phase !== "giveup" && (
-          <section className="space-y-2.5">
-            {task.options.map((opt) => {
-              const isSelected = selected === opt.id;
-              const isDisabled = phase !== "question";
-              const isWrong = isDisabled && isSelected && phase === "dialogue";
-              const isCorrectMark = phase === "correct" && isSelected;
-
-              return (
-                <button
-                  key={opt.id}
-                  disabled={isDisabled}
-                  onClick={() => setSelected(opt.id)}
-                  className={cn(
-                    "w-full rounded-2xl border px-5 py-3.5 text-left text-sm transition",
-                    !isDisabled && !isSelected && "border-border hover:border-fg/30",
-                    !isDisabled && isSelected && "border-accent bg-accent/10",
-                    isWrong && "border-danger/60 bg-danger/10 text-danger",
-                    isCorrectMark && "border-success/60 bg-success/10 text-success",
-                    isDisabled && !isSelected && !isWrong && "border-border opacity-50",
-                  )}
-                >
-                  <span className="mr-3 font-bold">{opt.id})</span>
-                  {opt.text}
-                </button>
-              );
-            })}
+        {/* Answer input */}
+        {phase === "question" && (
+          <section className="flex gap-2">
+            <input
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitAnswer()}
+              placeholder="Введи ответ..."
+              className="flex-1 rounded-2xl border border-border bg-transparent px-4 py-3 text-sm outline-none transition focus:border-fg/40"
+            />
+            <Button size="lg" onClick={submitAnswer} disabled={!answer.trim()}>
+              →
+            </Button>
           </section>
         )}
 
-        {/* Submit button */}
-        {phase === "question" && selected && (
-          <Button size="lg" className="w-full" onClick={submitAnswer}>
-            Ответить
-          </Button>
+        {/* Wrong answer highlight */}
+        {phase === "dialogue" && answer && (
+          <div className="rounded-2xl border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger">
+            Твой ответ: <span className="font-semibold">{answer}</span> — неверно
+          </div>
         )}
 
         {phase === "submitting" && (

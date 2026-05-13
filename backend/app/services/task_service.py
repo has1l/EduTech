@@ -36,7 +36,10 @@ async def process_answer(
     if task is None:
         return AnswerResult(correct=False)
 
-    is_correct = answer.strip().upper() == task.correct_answer.strip().upper()
+    def _normalize(s: str) -> str:
+        return s.strip().replace(",", ".").upper()
+
+    is_correct = _normalize(answer) == _normalize(task.correct_answer)
 
     attempt = Attempt(
         user_id=user.id,

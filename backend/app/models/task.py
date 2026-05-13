@@ -26,3 +26,4 @@ class Task(Base, UUIDPrimaryKey, Timestamped):
     typical_errors: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     theory_section_ids: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
     difficulty: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    source_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)

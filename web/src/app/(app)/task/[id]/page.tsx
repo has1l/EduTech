@@ -74,12 +74,12 @@ export default function TaskPage() {
         const { done, value } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
-        const parts = buf.split("\n\n");
+        const parts = buf.split(/\r\n\r\n|\n\n/);
         buf = parts.pop() ?? "";
 
         for (const block of parts) {
-          const evName = block.match(/^event: (.+)$/m)?.[1];
-          const dataStr = block.match(/^data: (.*)$/m)?.[1] ?? "";
+          const evName = block.match(/^event: (.+)$/m)?.[1]?.trim();
+          const dataStr = block.match(/^data: (.*)$/m)?.[1]?.trim() ?? "";
 
           if (evName === "token") {
             const text = JSON.parse(dataStr) as string;

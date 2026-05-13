@@ -13,6 +13,7 @@ from app.models.task import Task
 from app.models.theory import TheorySection
 from app.models.user import User
 from app.schemas.tasks import AnswerResult, TaskOut, TodaySession
+from app.services.bank_ege_client import fetch_and_store_tasks
 
 _SESSION_TTL = 60 * 60 * 20  # 20 hours
 
@@ -80,12 +81,18 @@ async def get_today_session(user: User, db: AsyncSession, redis: Redis) -> Today
         )
         done_ids = set(done_today.all())
 
-        result = await db.scalars(select(Task).where(Task.id.notin_(done_ids)).limit(5))
-        tasks = list(result.all())
+        available = await db.scalars(
+            select(Task).where(Task.id.notin_(done_ids)).limit(5)
+        )
+        tasks = list(available.all())
 
-        if not tasks:
-            result = await db.scalars(select(Task).limit(5))
-            tasks = list(result.all())
+        if len(tasks) < 5:
+            await fetch_and_store_tasks(db, redis, needed=15)
+            await db.commit()
+            available = await db.scalars(
+                select(Task).where(Task.id.notin_(done_ids)).limit(5)
+            )
+            tasks = list(available.all())
 
         task_ids = [str(t.id) for t in tasks]
         await redis.setex(cache_key, _SESSION_TTL, json.dumps(task_ids))

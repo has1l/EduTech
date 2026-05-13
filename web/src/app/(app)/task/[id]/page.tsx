@@ -233,18 +233,16 @@ export default function TaskPage() {
                       : "bg-border/60 ml-10",
                   )}
                 >
-                  {msg.content}
+                  <MathText text={msg.content} />
                 </div>
               ))}
 
               {streaming && (
                 <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-accent/15 border border-accent/20">
-                  {streamingText || (
-                    <span className="text-muted">AI думает...</span>
-                  )}
-                  {streamingText && (
-                    <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-fg/60" />
-                  )}
+                  {streamingText
+                    ? <><MathText text={streamingText} /><span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-fg/60" /></>
+                    : <span className="text-muted">AI думает...</span>
+                  }
                 </div>
               )}
             </div>
@@ -267,7 +265,7 @@ export default function TaskPage() {
                 </p>
                 {giveUpResult.explanation && (
                   <p className="text-sm text-muted leading-relaxed">
-                    {giveUpResult.explanation}
+                    <MathText text={giveUpResult.explanation} />
                   </p>
                 )}
                 <Button className="w-full mt-3" onClick={() => router.push("/today")}>

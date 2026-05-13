@@ -74,9 +74,12 @@ async def give_up_dialogue(
     explanation = None
     if task.solution_steps:
         steps = task.solution_steps
-        if isinstance(steps, list):
+        if isinstance(steps, dict):
+            parts = steps.get("steps") or []
+            explanation = "\n".join(str(p) for p in parts if p) or None
+        elif isinstance(steps, list):
             explanation = "\n".join(
                 s.get("text", "") if isinstance(s, dict) else str(s) for s in steps
-            )
+            ) or None
 
     return GiveUpResult(correct_answer=task.correct_answer, explanation=explanation)

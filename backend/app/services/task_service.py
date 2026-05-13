@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import date
 from uuid import UUID
 
@@ -14,6 +15,8 @@ from app.models.theory import TheorySection
 from app.models.user import User
 from app.schemas.tasks import AnswerResult, TaskOut, TodaySession
 from app.services.bank_ege_client import fetch_and_store_tasks
+
+log = logging.getLogger(__name__)
 
 _SESSION_TTL = 60 * 60 * 20  # 20 hours
 
@@ -92,8 +95,12 @@ async def get_today_session(user: User, db: AsyncSession, redis: Redis) -> Today
         tasks = list(available.all())
 
         if len(tasks) < 5:
-            await fetch_and_store_tasks(db, redis, needed=15)
-            await db.commit()
+            try:
+                await fetch_and_store_tasks(db, redis, needed=15)
+                await db.commit()
+            except Exception as exc:
+                log.exception("bank_ege fetch failed: %s", exc)
+                await db.rollback()
             available = await db.scalars(
                 select(Task).where(Task.id.notin_(done_ids)).limit(5)
             )

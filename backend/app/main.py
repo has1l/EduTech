@@ -1,7 +1,8 @@
+import logging
 from contextlib import asynccontextmanager
 
 import sentry_sdk
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -52,6 +53,12 @@ async def health() -> dict[str, str]:
 @app.get("/", tags=["system"])
 async def root() -> JSONResponse:
     return JSONResponse({"name": "EduTech API", "docs": "/docs"})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logging.getLogger(__name__).exception("Unhandled error: %s %s", request.method, request.url)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 app.include_router(api_router, prefix="/api/v1")

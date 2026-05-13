@@ -47,7 +47,7 @@ def _extract_image(html: str) -> str | None:
     if not m:
         return None
     src = m.group(1)
-    return src if src.startswith("http") else None
+    return src if (src.startswith("http") or src.startswith("data:image")) else None
 
 
 def _difficulty(raw: int, number: int) -> int:

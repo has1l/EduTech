@@ -19,7 +19,7 @@ class Task(Base, UUIDPrimaryKey, Timestamped):
     )
     type: Mapped[str] = mapped_column(String(32), nullable=False)
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
-    question_image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    question_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     options: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
     correct_answer: Mapped[str] = mapped_column(String(255), nullable=False)
     solution_steps: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)

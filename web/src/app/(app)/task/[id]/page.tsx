@@ -179,7 +179,11 @@ export default function TaskPage() {
           )}
           {task.question_image_url && (
             <img
-              src={`${API_URL}/tasks/image-proxy?url=${encodeURIComponent(task.question_image_url)}`}
+              src={
+                task.question_image_url.startsWith("data:")
+                  ? task.question_image_url
+                  : `${API_URL}/tasks/image-proxy?url=${encodeURIComponent(task.question_image_url)}`
+              }
               alt="Рисунок к задаче"
               className="max-w-full rounded-xl"
             />

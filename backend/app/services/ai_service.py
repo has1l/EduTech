@@ -59,7 +59,18 @@ async def stream_socratic(
     system = _build_system_prompt(task, attempt, dialogue.hint_level)
     system += _hint_instruction(dialogue.hint_level)
 
-    messages: list[dict[str, str]] = [{"role": "system", "content": system}]
+    messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
+
+    if task.question_image_url:
+        messages.append({
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Изображение к задаче:"},
+                {"type": "image_url", "image_url": {"url": task.question_image_url}},
+            ],
+        })
+        messages.append({"role": "assistant", "content": "Вижу изображение к задаче."})
+
     for msg in dialogue.messages:
         messages.append({"role": msg["role"], "content": msg["content"]})
 
@@ -70,7 +81,7 @@ async def stream_socratic(
             model=settings.openai_model,
             messages=messages,
             stream=True,
-            max_tokens=300,
+            max_tokens=500,
             temperature=0.7,
         )
         async for chunk in stream:

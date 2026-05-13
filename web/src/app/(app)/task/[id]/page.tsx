@@ -91,12 +91,13 @@ export default function TaskPage() {
             };
             if (meta.theory_ref) setTheoryRef(meta.theory_ref);
           } else if (evName === "done") {
-            setMessages((prev) => [
-              ...prev,
-              { role: "assistant", content: streamBuffer.current },
-            ]);
+            const finalText = streamBuffer.current;
             streamBuffer.current = "";
             setStreamingText("");
+            setMessages((prev) => [
+              ...prev,
+              { role: "assistant", content: finalText },
+            ]);
             setStreaming(false);
           } else if (evName === "error") {
             setStreaming(false);

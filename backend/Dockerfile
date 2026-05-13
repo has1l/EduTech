@@ -20,4 +20,4 @@ COPY . .
 
 EXPOSE ${PORT:-8000}
 
-CMD ["sh", "-c", "set -e; echo '=== alembic start ==='; alembic upgrade head; echo '=== alembic done, starting uvicorn on port ${PORT:-8000} ==='; exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level debug 2>&1"]
+CMD ["sh", "-c", "set -e; echo '=== alembic ==='; alembic upgrade head; echo '=== seed ==='; python seed.py; echo '=== uvicorn ==='; exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level debug 2>&1"]

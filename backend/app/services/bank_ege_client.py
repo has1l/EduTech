@@ -134,9 +134,10 @@ async def fetch_and_store_tasks(redis: Redis, needed: int = 15) -> int:
 
                 html = q.get("description") or ""
                 question_text = _strip_html(html)
-                if len(question_text) < 15:
+                image_url = _extract_image(html)
+                if len(question_text) < 15 and not image_url:
                     continue
-                if question_text.endswith("...") or question_text.endswith("…"):
+                if (question_text.endswith("...") or question_text.endswith("…")) and not image_url:
                     continue
 
                 topic_title = (
@@ -177,7 +178,7 @@ async def fetch_and_store_tasks(redis: Redis, needed: int = 15) -> int:
                     topic_id=topic_id,
                     type="short_answer",
                     question_text=question_text,
-                    question_image_url=_extract_image(html),
+                    question_image_url=image_url,
                     options=None,
                     correct_answer=correct,
                     solution_steps={"steps": [solution]} if solution else None,

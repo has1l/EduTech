@@ -171,10 +171,19 @@ export default function TaskPage() {
         </div>
 
         {/* Question */}
-        <section className="rounded-3xl border border-border p-6">
-          <p className="text-base leading-relaxed">
-            <MathText text={task.question_text} />
-          </p>
+        <section className="rounded-3xl border border-border p-6 space-y-4">
+          {task.question_text && (
+            <p className="text-base leading-relaxed">
+              <MathText text={task.question_text} />
+            </p>
+          )}
+          {task.question_image_url && (
+            <img
+              src={task.question_image_url}
+              alt="Рисунок к задаче"
+              className="max-w-full rounded-xl"
+            />
+          )}
         </section>
 
         {/* Answer input */}

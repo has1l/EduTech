@@ -45,9 +45,9 @@ export default function TodayPage() {
 
         <section className="mt-8 space-y-3">
           {isLoading &&
-            Array.from({ length: 3 }).map((_, i) => (
+            Array.from({ length: 3 }).map((_, idx) => (
               <div
-                key={i}
+                key={idx}
                 className="h-20 rounded-2xl border border-border animate-pulse bg-fg/5"
               />
             ))}

@@ -1,12 +1,42 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+import httpx
+from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import Response
 
 from app.core.deps import CurrentUser, DbSession
 from app.schemas.tasks import AnswerIn, AnswerResult, TaskOut
 from app.services.task_service import get_task, process_answer
 
 router = APIRouter()
+
+_ALLOWED_HOSTS = ("bank-ege.ru", "new-api.bank-ege.ru")
+_PROXY_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    "Referer": "https://bank-ege.ru/",
+}
+
+
+@router.get("/image-proxy")
+async def image_proxy(
+    url: str = Query(...),
+    user: CurrentUser = None,
+) -> Response:
+    from urllib.parse import urlparse
+    host = urlparse(url).hostname or ""
+    if not any(host == h or host.endswith("." + h) for h in _ALLOWED_HOSTS):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Forbidden host")
+    try:
+        async with httpx.AsyncClient(headers=_PROXY_HEADERS, timeout=10, follow_redirects=True) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+        return Response(
+            content=r.content,
+            media_type=r.headers.get("content-type", "image/png"),
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to fetch image")
 
 
 @router.get("/{task_id}", response_model=TaskOut)

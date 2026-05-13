@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     refresh_token_ttl: int = 2592000
 
     openai_api_key: str = ""
-    openai_model: str = "gpt-4o"
+    openai_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"
 
     yandex_client_id: str = ""

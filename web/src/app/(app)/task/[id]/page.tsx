@@ -173,7 +173,7 @@ export default function TaskPage() {
         {/* Question */}
         <section className="rounded-3xl border border-border p-6 space-y-4">
           {task.question_text && (
-            <p className="text-base leading-relaxed">
+            <p className="text-base leading-relaxed whitespace-pre-wrap">
               <MathText text={task.question_text} />
             </p>
           )}

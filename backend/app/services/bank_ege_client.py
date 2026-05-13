@@ -2,6 +2,7 @@
 Lazy-loads tasks from bank-ege.ru public API into our DB on demand.
 Called by task_service when there are not enough local tasks for today's session.
 """
+import html as html_mod
 import logging
 import random
 import re
@@ -29,9 +30,16 @@ _DEFAULT_SUBJECT_TITLE = "Математика ОГЭ"
 _USED_VARIANTS_KEY = "bank_ege:used_variants"
 
 
-def _strip_html(html: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", html)
-    return re.sub(r"\s+", " ", text).strip()
+def _strip_html(raw: str) -> str:
+    t = re.sub(r"<br\s*/?>", "\n", raw, flags=re.IGNORECASE)
+    t = re.sub(r"<li[^>]*>", "\n• ", t, flags=re.IGNORECASE)
+    t = re.sub(r"</(p|div|h\d|tr|ul|ol)>", "\n", t, flags=re.IGNORECASE)
+    t = re.sub(r"<(p|div|h\d)[^>]*>", "\n", t, flags=re.IGNORECASE)
+    t = re.sub(r"<td[^>]*>|<th[^>]*>", " | ", t, flags=re.IGNORECASE)
+    t = re.sub(r"<[^>]+>", "", t)
+    t = html_mod.unescape(t)
+    lines = [re.sub(r"[ \t]+", " ", line).strip() for line in t.split("\n")]
+    return "\n".join(line for line in lines if line).strip()
 
 
 def _extract_image(html: str) -> str | None:

@@ -67,20 +67,25 @@ async def get_today_session(user: User, db: AsyncSession, redis: Redis) -> Today
     cache_key = _today_key(user.id)
     cached = await redis.get(cache_key)
 
+    done_today = await db.scalars(
+        select(Attempt.task_id).where(
+            Attempt.user_id == user.id,
+            func.date(Attempt.created_at) == date.today(),
+        )
+    )
+    done_ids = set(done_today.all())
+
     if cached:
         task_ids = json.loads(cached)
         tasks_q = await db.execute(select(Task).where(Task.id.in_(task_ids)))
         tasks = list(tasks_q.scalars().all())
         tasks.sort(key=lambda t: task_ids.index(str(t.id)))
-    else:
-        done_today = await db.scalars(
-            select(Attempt.task_id).where(
-                Attempt.user_id == user.id,
-                func.date(Attempt.created_at) == date.today(),
-            )
-        )
-        done_ids = set(done_today.all())
+        # Cache had stale IDs (e.g. after migration) — fall through to rebuild
+        if not tasks:
+            await redis.delete(cache_key)
+            cached = None
 
+    if not cached:
         available = await db.scalars(
             select(Task).where(Task.id.notin_(done_ids)).limit(5)
         )
@@ -94,8 +99,9 @@ async def get_today_session(user: User, db: AsyncSession, redis: Redis) -> Today
             )
             tasks = list(available.all())
 
-        task_ids = [str(t.id) for t in tasks]
-        await redis.setex(cache_key, _SESSION_TTL, json.dumps(task_ids))
+        if tasks:
+            task_ids = [str(t.id) for t in tasks]
+            await redis.setex(cache_key, _SESSION_TTL, json.dumps(task_ids))
 
     session_id = f"{user.id}:{date.today()}"
     return TodaySession(

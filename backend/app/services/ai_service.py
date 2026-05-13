@@ -19,7 +19,7 @@ def _hint_instruction(hint_level: int) -> str:
     return "Объясни полностью: где была ошибка и как решить правильно, шаг за шагом."
 
 
-def _build_system_prompt(task: Task, attempt: Attempt) -> str:
+def _build_system_prompt(task: Task, attempt: Attempt, hint_level: int = 1) -> str:
     options_text = ""
     if task.options:
         parts = [f"{o['id']}) {o['text']}" for o in task.options]
@@ -32,16 +32,19 @@ def _build_system_prompt(task: Task, attempt: Attempt) -> str:
             + task.typical_errors[attempt.user_answer].get("hypothesis", "")
         )
 
+    no_spoiler = "" if hint_level >= 3 else "- НЕ называй правильный ответ напрямую\n"
+
     return (
         "Ты педагог-тьютор по математике. Ученик решал задачу и дал неверный ответ. "
         "Помоги ему самостоятельно найти ошибку через сократический диалог.\n\n"
         f"Задача: {task.question_text}{options_text}\n"
+        f"Правильный ответ: {task.correct_answer}\n"
         f"Ответ ученика: {attempt.user_answer}"
         f"{error_hypothesis}\n\n"
         "Правила:\n"
         "- Обращайся на «ты», тон дружелюбный и поддерживающий\n"
         "- Отвечай коротко — 1-3 предложения\n"
-        "- НЕ называй правильный ответ напрямую\n"
+        f"{no_spoiler}"
     )
 
 
@@ -53,7 +56,7 @@ async def stream_socratic(
 ) -> AsyncGenerator[dict[str, Any], None]:
     client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-    system = _build_system_prompt(task, attempt)
+    system = _build_system_prompt(task, attempt, dialogue.hint_level)
     system += _hint_instruction(dialogue.hint_level)
 
     messages: list[dict[str, str]] = [{"role": "system", "content": system}]

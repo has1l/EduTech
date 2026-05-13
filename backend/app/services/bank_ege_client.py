@@ -134,7 +134,9 @@ async def fetch_and_store_tasks(redis: Redis, needed: int = 15) -> int:
 
                 html = q.get("description") or ""
                 question_text = _strip_html(html)
-                if len(question_text) < 5:
+                if len(question_text) < 15:
+                    continue
+                if question_text.endswith("...") or question_text.endswith("…"):
                     continue
 
                 topic_title = (

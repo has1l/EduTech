@@ -7,4 +7,3 @@ class ReplyIn(BaseModel):
 
 class GiveUpResult(BaseModel):
     correct_answer: str
-    explanation: str | None = None

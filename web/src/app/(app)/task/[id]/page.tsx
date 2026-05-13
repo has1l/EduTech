@@ -39,7 +39,6 @@ export default function TaskPage() {
   const [reply, setReply] = useState("");
   const [giveUpResult, setGiveUpResult] = useState<{
     correct_answer: string;
-    explanation: string | null;
   } | null>(null);
   const streamBuffer = useRef("");
 
@@ -139,12 +138,10 @@ export default function TaskPage() {
 
   async function giveUp() {
     if (!dialogueId) return;
-    const { data } = await api.post<{
-      correct_answer: string;
-      explanation: string | null;
-    }>(`/dialogue/${dialogueId}/give-up`);
+    const { data } = await api.post<{ correct_answer: string }>(`/dialogue/${dialogueId}/give-up`);
     setGiveUpResult(data);
     setPhase("giveup");
+    await startStream(dialogueId);
   }
 
   if (isLoading || !task) {
@@ -256,26 +253,16 @@ export default function TaskPage() {
               </div>
             )}
 
-            {/* Give-up result */}
+            {/* Give-up: correct answer banner */}
             {phase === "giveup" && giveUpResult && (
-              <div className="rounded-3xl border border-border p-5 space-y-2">
-                <p className="font-semibold text-sm">
-                  Правильный ответ:{" "}
-                  <span className="text-success">{giveUpResult.correct_answer}</span>
-                </p>
-                {giveUpResult.explanation && (
-                  <p className="text-sm text-muted leading-relaxed">
-                    <MathText text={giveUpResult.explanation} />
-                  </p>
-                )}
-                <Button className="w-full mt-3" onClick={() => router.push("/today")}>
-                  Следующее задание
-                </Button>
+              <div className="rounded-2xl border border-success/40 bg-success/10 px-4 py-3 text-sm">
+                Правильный ответ:{" "}
+                <span className="font-semibold text-success">{giveUpResult.correct_answer}</span>
               </div>
             )}
 
             {/* Reply input */}
-            {phase === "dialogue" && !streaming && messages.length > 0 && (
+            {(phase === "dialogue" || phase === "giveup") && !streaming && messages.length > 0 && (
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <input
@@ -291,27 +278,31 @@ export default function TaskPage() {
                     →
                   </Button>
                 </div>
-                <button
-                  onClick={giveUp}
-                  className="text-xs text-muted underline underline-offset-2 transition hover:text-fg"
-                >
-                  Объяснить сразу
-                </button>
+                {phase === "dialogue" && (
+                  <button
+                    onClick={giveUp}
+                    className="text-xs text-muted underline underline-offset-2 transition hover:text-fg"
+                  >
+                    Объяснить сразу
+                  </button>
+                )}
               </div>
             )}
 
-            {/* Go to next after 3 AI turns */}
-            {phase === "dialogue" &&
-              !streaming &&
-              messages.filter((m) => m.role === "assistant").length >= 3 && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => router.push("/today")}
-                >
-                  Следующее задание
-                </Button>
-              )}
+            {/* Go to next: after 3 AI turns in dialogue, or always in giveup */}
+            {!streaming && (
+              (phase === "giveup" ||
+                (phase === "dialogue" &&
+                  messages.filter((m) => m.role === "assistant").length >= 3))
+            ) && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => router.push("/today")}
+              >
+                Следующее задание
+              </Button>
+            )}
           </section>
         )}
       </main>

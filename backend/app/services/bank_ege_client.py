@@ -36,7 +36,10 @@ def _strip_html(html: str) -> str:
 
 def _extract_image(html: str) -> str | None:
     m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', html)
-    return m.group(1) if m else None
+    if not m:
+        return None
+    src = m.group(1)
+    return src if src.startswith("http") else None
 
 
 def _difficulty(raw: int, number: int) -> int:

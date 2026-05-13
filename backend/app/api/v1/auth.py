@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
+from app.config import settings
 from app.core.deps import DbSession, RedisClient
 from app.core.security import hash_password, verify_password
 from app.models.user import User
@@ -11,8 +12,12 @@ from app.schemas.auth import (
     RegisterRequest,
     TokenPair,
     UserPublic,
+    YandexAuthRequest,
 )
 from app.services.auth_service import (
+    exchange_yandex_code,
+    fetch_yandex_user_info,
+    find_or_create_yandex_user,
     is_user_onboarded,
     issue_token_pair,
     revoke_refresh_token,
@@ -89,8 +94,31 @@ async def logout(body: RefreshRequest, redis: RedisClient) -> None:
 
 
 @router.post("/yandex", response_model=AuthResponse)
-async def yandex_auth() -> AuthResponse:
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Yandex OAuth will be implemented after backend skeleton is verified locally",
+async def yandex_auth(body: YandexAuthRequest, db: DbSession, redis: RedisClient) -> AuthResponse:
+    if body.redirect_uri and body.redirect_uri != settings.yandex_redirect_uri_web:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Yandex redirect URI",
+        )
+
+    try:
+        yandex_access_token = await exchange_yandex_code(body.code)
+        yandex_user = await fetch_yandex_user_info(yandex_access_token)
+        user = await find_or_create_yandex_user(yandex_user, db)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        ) from e
+
+    tokens = await issue_token_pair(user, redis)
+    return AuthResponse(
+        user=UserPublic.model_validate(user),
+        tokens=tokens,
+        needs_onboarding=not is_user_onboarded(user),
     )

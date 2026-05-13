@@ -7,6 +7,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
+import { YandexLoginButton } from "@/components/yandex-login-button";
 import { apiErrorMessage, useAuthMutation } from "@/lib/auth-flow";
 
 const schema = z.object({
@@ -62,6 +63,12 @@ export default function LoginPage() {
           {mutation.isPending ? "Входим..." : "Войти"}
         </Button>
       </form>
+      <div className="my-6 flex items-center gap-3 text-xs text-muted">
+        <div className="h-px flex-1 bg-border" />
+        <span>или</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+      <YandexLoginButton />
     </>
   );
 }

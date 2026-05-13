@@ -2,32 +2,28 @@
 
 import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
-import { useMe } from "@/lib/queries";
+import { useMe, useTodaySession } from "@/lib/queries";
+import { cn } from "@/lib/utils";
 
-const MOCK_TASKS = [
-  {
-    id: "mock-1",
-    topic: "Окружность · вписанный угол",
-    difficulty: "Средний",
-    minutes: 3,
-  },
-  {
-    id: "mock-2",
-    topic: "Тригонометрия · преобразование",
-    difficulty: "Сложный",
-    minutes: 5,
-  },
-  {
-    id: "mock-3",
-    topic: "Производная · экстремумы",
-    difficulty: "Средний",
-    minutes: 4,
-  },
-];
+const DIFFICULTY_LABEL: Record<number, string> = {
+  1: "Лёгкий",
+  2: "Средний",
+  3: "Сложный",
+};
+
+const DIFFICULTY_COLOR: Record<number, string> = {
+  1: "text-success",
+  2: "text-yellow-500",
+  3: "text-danger",
+};
 
 export default function TodayPage() {
   const { data: me } = useMe();
+  const { data: session, isLoading } = useTodaySession();
   const firstName = me?.name?.split(" ")[0] ?? "ученик";
+
+  const tasks = session?.tasks ?? [];
+  const totalMin = tasks.reduce((s, t) => s + t.difficulty * 2, 0);
 
   return (
     <>
@@ -38,34 +34,54 @@ export default function TodayPage() {
           <h1 className="mt-1 text-3xl font-bold tracking-tight">
             Привет, {firstName}!
           </h1>
-          <p className="mt-2 max-w-md text-sm">
-            {MOCK_TASKS.length} задания · ~
-            {MOCK_TASKS.reduce((s, t) => s + t.minutes, 0)} минут
+          <p className="mt-2 text-sm">
+            {isLoading
+              ? "Подбираем задания..."
+              : tasks.length > 0
+                ? `${tasks.length} задания · ~${totalMin} минут`
+                : "Все задания выполнены 🎉"}
           </p>
         </section>
 
         <section className="mt-8 space-y-3">
-          {MOCK_TASKS.map((t) => (
-            <Link
-              key={t.id}
-              href={`/task/${t.id}`}
-              className="flex items-center justify-between rounded-2xl border border-border p-4 transition hover:bg-fg/5"
-            >
-              <div>
-                <div className="font-semibold">{t.topic}</div>
-                <div className="text-sm text-muted">
-                  {t.difficulty} · {t.minutes} мин
-                </div>
-              </div>
-              <span className="text-2xl text-muted">→</span>
-            </Link>
-          ))}
-        </section>
+          {isLoading &&
+            Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-20 rounded-2xl border border-border animate-pulse bg-fg/5"
+              />
+            ))}
 
-        <p className="mt-8 text-center text-xs text-muted">
-          Это заглушка. Реальные задания подгрузятся, когда подключим
-          /sessions/today.
-        </p>
+          {!isLoading &&
+            tasks.map((task, i) => (
+              <Link
+                key={task.id}
+                href={`/task/${task.id}`}
+                className="flex items-center justify-between rounded-2xl border border-border p-4 transition hover:bg-fg/5"
+              >
+                <div className="min-w-0 flex-1 pr-3">
+                  <div className="truncate font-semibold text-sm">
+                    {task.question_text}
+                  </div>
+                  <div
+                    className={cn(
+                      "mt-0.5 text-xs",
+                      DIFFICULTY_COLOR[task.difficulty],
+                    )}
+                  >
+                    {DIFFICULTY_LABEL[task.difficulty]} · {task.difficulty * 2} мин
+                  </div>
+                </div>
+                <span className="shrink-0 text-xl text-muted">→</span>
+              </Link>
+            ))}
+
+          {!isLoading && tasks.length === 0 && (
+            <p className="text-center text-sm text-muted py-8">
+              Нет доступных заданий.
+            </p>
+          )}
+        </section>
       </main>
     </>
   );

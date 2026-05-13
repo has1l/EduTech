@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { useAuth } from "./auth";
-import type { User } from "./types";
+import type { Task, TodaySession, User } from "./types";
 
 const ME_KEY = ["users", "me"] as const;
 
@@ -26,6 +26,30 @@ export type UpdateProfileInput = {
   target_score?: number;
   exam_date?: string;
 };
+
+export function useTodaySession() {
+  const tokens = useAuth((s) => s.tokens);
+  return useQuery({
+    queryKey: ["sessions", "today"],
+    enabled: !!tokens,
+    queryFn: async () => {
+      const { data } = await api.get<TodaySession>("/sessions/today");
+      return data;
+    },
+  });
+}
+
+export function useTask(id: string) {
+  const tokens = useAuth((s) => s.tokens);
+  return useQuery({
+    queryKey: ["tasks", id],
+    enabled: !!tokens && !!id,
+    queryFn: async () => {
+      const { data } = await api.get<Task>(`/tasks/${id}`);
+      return data;
+    },
+  });
+}
 
 export function useUpdateProfile() {
   const qc = useQueryClient();

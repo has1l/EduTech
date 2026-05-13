@@ -22,3 +22,25 @@ export type AuthResponse = {
 export type ApiErrorBody = {
   detail: string | Array<{ msg: string; loc: (string | number)[] }>;
 };
+
+export type TaskOption = { id: string; text: string };
+
+export type Task = {
+  id: string;
+  topic_id: string;
+  type: string;
+  question_text: string;
+  question_image_url: string | null;
+  options: TaskOption[] | null;
+  difficulty: number;
+};
+
+export type AnswerResult = {
+  correct: boolean;
+  dialogue_id: string | null;
+};
+
+export type TodaySession = {
+  session_id: string;
+  tasks: Task[];
+};

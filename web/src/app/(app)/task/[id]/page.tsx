@@ -68,7 +68,7 @@ export default function TaskPage() {
 
         for (const block of parts) {
           const evName = block.match(/^event: (.+)$/m)?.[1];
-          const dataStr = block.match(/^data: (.*)$/ms)?.[1] ?? "";
+          const dataStr = block.match(/^data: (.*)$/m)?.[1] ?? "";
 
           if (evName === "token") {
             const text = JSON.parse(dataStr) as string;

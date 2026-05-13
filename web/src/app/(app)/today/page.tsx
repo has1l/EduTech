@@ -53,7 +53,7 @@ export default function TodayPage() {
             ))}
 
           {!isLoading &&
-            tasks.map((task, i) => (
+            tasks.map((task) => (
               <Link
                 key={task.id}
                 href={`/task/${task.id}`}

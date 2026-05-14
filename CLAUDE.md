@@ -329,10 +329,12 @@ subjects (id, code, title)
 topics (
   id UUID PK,
   subject_id FK,
-  code TEXT,                    -- "inscribed_angle"
+  code TEXT,                    -- "1.3", "7.5" и т.д.
   title TEXT,
   weight_in_exam FLOAT,
-  difficulty INT
+  difficulty INT,
+  exam_task_number INT,         -- номер задания ЕГЭ (1–12), NULL для OGE
+  bank_ege_topic_id INT         -- ID подтемы на bank-ege.ru, NULL для ручных тем
 )
 
 topic_prerequisites (topic_id FK, prerequisite_id FK)
@@ -428,9 +430,11 @@ GET    /diagnostic/result
 
 GET    /sessions/today
 POST   /sessions/{id}/complete
+GET    /sessions/path              — путь ЕГЭ: все секции (задания 1–12) с нодами
 
 GET    /tasks/{id}
 POST   /tasks/{id}/answer
+GET    /tasks/subtopic-session?topic_id=...&count=5  — 5 случайных задач подтемы
 GET    /tasks/image-proxy?url=...  — проксирует картинки bank-ege.ru (Referer bypass)
 
 POST   /dialogue/{id}/reply
@@ -556,6 +560,34 @@ URL_SCHEME = edutech
 - Backend меняет `code` на OAuth token через Яндекс, получает профиль через `login.yandex.ru/info`
 - Пользователь ищется по `yandex_id`; если его нет, backend линкует существующего пользователя по email или создаёт нового
 - После входа пользователь попадает в `/onboarding` или `/today`
+
+### Иерархическая структура ЕГЭ: задания 1–12 с подтемами
+
+- `ALL_EGE_SUBTOPICS` в `bank_ege_client.py` — 77 подтем по заданиям 1–12 (sourced from `new-api.bank-ege.ru/api/ege/exam_topics?subject_id=19`)
+- `TASK_SECTIONS` — название и визуальная сложность каждого задания: 1=зелёный (задания 1,2,4), 2=жёлтый (задания 3,5–11), 3=красный (задание 12)
+- `ensure_ege_subtopics_seeded()` запускается при старте сервера и добавляет все недостающие подтемы
+- `Topic.exam_task_number` и `Topic.bank_ege_topic_id` — поля добавлены в миграции `0005`
+- EGE `source_id` имеет префикс `ege_` (например `ege_12345`) чтобы не пересекаться с OGE ID
+- Дублирующиеся подтемы из API (3.9 Конус id=1303, 6.3 Иррациональные уравнения id=1265) пропущены — используются более богатые версии (id=2392 и id=2401)
+
+**Путь (session/path):**
+- `GET /sessions/path` возвращает `SessionPathOut { sections: TaskSection[] }` вместо плоского `nodes`
+- Каждая секция: `{ task_number, title, difficulty, nodes: PathNode[] }`
+- Блокировка нод — **независимая внутри каждого задания**: первая невыполненная = `current`, остальные = `locked`; разные задания можно проходить параллельно
+- Сортировка нод: кортеж `(int(major), int(minor))` — корректно ставит 1.10 после 1.9
+- Нода считается выполненной при `correct_count >= 1`
+
+**Мини-сессия подтемы:**
+- Тап на ноду → `GET /tasks/subtopic-session?topic_id=...&count=5` → 5 случайных задач
+- Первая задача открывается на `/task/{id}?queue=id2,id3,id4,id5`
+- Прогресс-бар на странице задачи: позиция = `totalInSession - queue.length`
+
+**Фронт (session/page.tsx):**
+- Каждое задание — секция с цветным заголовком (номер, название, счётчик X/Y)
+- Цвет заголовка определяется `difficulty` секции (success/accent/danger)
+- Зигзаг-путь с нодами внутри каждой секции, сбрасывается для новой секции
+
+---
 
 ### Задачи из bank-ege.ru с картинками
 

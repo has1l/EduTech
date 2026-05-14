@@ -83,7 +83,11 @@ async def get_session_path(user, db: AsyncSession) -> SessionPathOut:
         select(Topic)
         .where(Topic.subject_id == subj.id, Topic.exam_task_number == 1)
     )
-    topics = sorted(topics_result.all(), key=lambda t: float(t.code))
+    def _topic_sort_key(t: Topic) -> tuple[int, int]:
+        parts = t.code.split(".")
+        return (int(parts[0]), int(parts[1])) if len(parts) == 2 else (0, 0)
+
+    topics = sorted(topics_result.all(), key=_topic_sort_key)
 
     if not topics:
         return SessionPathOut(nodes=[])

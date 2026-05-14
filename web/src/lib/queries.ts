@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { useAuth } from "./auth";
-import type { Task, TodaySession, User } from "./types";
+import type { SessionPath, Task, TodaySession, User } from "./types";
 
 const ME_KEY = ["users", "me"] as const;
 
@@ -34,6 +34,18 @@ export function useTodaySession() {
     enabled: !!tokens,
     queryFn: async () => {
       const { data } = await api.get<TodaySession>("/sessions/today");
+      return data;
+    },
+  });
+}
+
+export function useSessionPath() {
+  const tokens = useAuth((s) => s.tokens);
+  return useQuery({
+    queryKey: ["sessions", "path"],
+    enabled: !!tokens,
+    queryFn: async () => {
+      const { data } = await api.get<SessionPath>("/sessions/path");
       return data;
     },
   });

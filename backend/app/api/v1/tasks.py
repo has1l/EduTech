@@ -4,13 +4,13 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import Response
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser, DbSession, RedisClient
 from app.schemas.tasks import AnswerIn, AnswerResult, TaskOut
-from app.services.task_service import get_task, process_answer
+from app.services.task_service import get_random_task_for_topic, get_task, process_answer
 
 router = APIRouter()
 
-_ALLOWED_HOSTS = ("bank-ege.ru", "new-api.bank-ege.ru")
+_ALLOWED_HOSTS = ("bank-ege.ru", "new-api.bank-ege.ru", "storage.yandexcloud.net")
 _PROXY_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
     "Referer": "https://bank-ege.ru/",
@@ -37,6 +37,19 @@ async def image_proxy(
         )
     except Exception:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to fetch image")
+
+
+@router.get("/random-by-topic")
+async def random_task_by_topic(
+    topic_id: UUID = Query(...),
+    user: CurrentUser = None,
+    db: DbSession = None,
+    redis: RedisClient = None,
+) -> TaskOut:
+    task = await get_random_task_for_topic(topic_id, user, db, redis)
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No tasks for this topic")
+    return TaskOut.model_validate(task)
 
 
 @router.get("/{task_id}", response_model=TaskOut)

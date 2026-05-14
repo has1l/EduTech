@@ -20,6 +20,8 @@ class Topic(Base, UUIDPrimaryKey, Timestamped):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     weight_in_exam: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
     difficulty: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    exam_task_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    bank_ege_topic_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
 
 class TopicPrerequisite(Base):

@@ -1,46 +1,36 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Zap, Star, Lock } from "lucide-react";
+import { ChevronLeft, Zap, Star, Lock, CheckCircle2 } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
-import { useMe, useTodaySession } from "@/lib/queries";
+import { useSessionPath } from "@/lib/queries";
+import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import type { Task } from "@/lib/types";
+import type { PathNode, Task } from "@/lib/types";
 
-// Zigzag offsets from center (px): right → center → left → center → ...
 const ZIGZAG_OFFSETS = [56, 16, -56, -16, 56, 16, -56, -16];
 
-const DIFFICULTY_LABEL: Record<number, string> = {
-  1: "Лёгкое",
-  2: "Среднее",
-  3: "Сложное",
-};
-
-const DIFFICULTY_COLOR: Record<number, string> = {
-  1: "text-emerald-500",
-  2: "text-yellow-500",
-  3: "text-rose-500",
-};
-
-type NodeState = "current" | "next" | "locked";
-
-function getNodeState(index: number): NodeState {
-  if (index === 0) return "current";
-  if (index <= 1) return "next";
-  return "locked";
-}
+type NodeState = "completed" | "current" | "locked";
 
 function PathNode({
-  task,
+  node,
   index,
   offset,
+  onTap,
+  loading,
 }: {
-  task: Task;
+  node: PathNode;
   index: number;
   offset: number;
+  onTap: (node: PathNode) => void;
+  loading: boolean;
 }) {
-  const state = getNodeState(index);
+  const state = node.state as NodeState;
   const isCurrent = state === "current";
+  const isCompleted = state === "completed";
   const isLocked = state === "locked";
 
   return (
@@ -48,62 +38,61 @@ function PathNode({
       className="flex flex-col items-center"
       style={{ transform: `translateX(${offset}px)` }}
     >
-      <Link
-        href={isLocked ? "#" : `/task/${task.id}`}
-        className={cn("group relative block", isLocked && "pointer-events-none")}
-        aria-disabled={isLocked}
+      <button
+        onClick={() => !isLocked && !loading && onTap(node)}
+        disabled={isLocked || loading}
+        className={cn(
+          "group relative block rounded-full transition-transform duration-200",
+          isLocked ? "cursor-not-allowed" : "cursor-pointer",
+        )}
       >
-        {/* Pulse ring for current node */}
         {isCurrent && (
           <span className="absolute inset-0 rounded-full bg-accent/30 animate-ping" />
         )}
 
-        {/* Outer ring */}
         <div
           className={cn(
             "relative flex h-[72px] w-[72px] items-center justify-center rounded-full transition-transform duration-200",
             isCurrent
               ? "bg-accent text-accent-fg shadow-[0_0_0_6px_hsl(var(--accent)/25)] group-hover:scale-105"
-              : isLocked
-                ? "border-2 border-dashed border-border bg-bg text-muted/40"
-                : "border-[3px] border-border bg-bg text-fg/80 group-hover:scale-105 group-hover:border-accent/60",
+              : isCompleted
+                ? "bg-success/20 border-2 border-success text-success group-hover:scale-105"
+                : "border-2 border-dashed border-border bg-bg text-muted/40",
           )}
         >
           {isCurrent ? (
             <Zap className="h-7 w-7 fill-current" />
-          ) : isLocked ? (
-            <Lock className="h-5 w-5" />
+          ) : isCompleted ? (
+            <CheckCircle2 className="h-6 w-6" />
           ) : (
-            <span className="text-xl font-bold">{index + 1}</span>
+            <Lock className="h-5 w-5" />
           )}
         </div>
-      </Link>
+      </button>
 
-      {/* Difficulty label */}
       <p
         className={cn(
-          "mt-2 text-xs font-medium",
-          isLocked ? "text-muted/40" : DIFFICULTY_COLOR[task.difficulty] ?? "text-muted",
+          "mt-2 text-center text-xs font-medium max-w-[90px] leading-tight",
+          isLocked ? "text-muted/40" : isCompleted ? "text-success" : "text-fg/80",
         )}
       >
-        {DIFFICULTY_LABEL[task.difficulty] ?? `Задание ${index + 1}`}
+        {node.subtopic_number}
+      </p>
+      <p
+        className={cn(
+          "text-center text-[11px] max-w-[100px] leading-tight",
+          isLocked ? "text-muted/30" : "text-muted",
+        )}
+      >
+        {node.title}
       </p>
     </div>
   );
 }
 
-function Connector({
-  fromOffset,
-  toOffset,
-}: {
-  fromOffset: number;
-  toOffset: number;
-}) {
-  const cx = 160; // center of 320px container
-  const x1 = cx + fromOffset;
-  const x2 = cx + toOffset;
+function Connector({ fromOffset, toOffset }: { fromOffset: number; toOffset: number }) {
+  const cx = 160;
   const height = 64;
-
   return (
     <svg
       width="320"
@@ -112,9 +101,9 @@ function Connector({
       style={{ marginLeft: "-50%", transform: "translateX(50%)" }}
     >
       <line
-        x1={x1}
+        x1={cx + fromOffset}
         y1={0}
-        x2={x2}
+        x2={cx + toOffset}
         y2={height}
         stroke="hsl(var(--border))"
         strokeWidth="2.5"
@@ -126,10 +115,26 @@ function Connector({
 }
 
 export default function SessionPage() {
-  useMe();
-  const { data: session, isLoading } = useTodaySession();
-  const tasks = session?.tasks ?? [];
-  const totalMin = tasks.reduce((s, t) => s + t.difficulty * 2, 0);
+  const router = useRouter();
+  const tokens = useAuth((s) => s.tokens);
+  const { data: path, isLoading } = useSessionPath();
+  const [loadingNode, setLoadingNode] = useState<string | null>(null);
+
+  const nodes = path?.nodes ?? [];
+  const completedCount = nodes.filter((n) => n.state === "completed").length;
+
+  async function handleNodeTap(node: PathNode) {
+    if (!tokens) return;
+    setLoadingNode(node.topic_id);
+    try {
+      const { data: task } = await api.get<Task>(
+        `/tasks/random-by-topic?topic_id=${node.topic_id}`,
+      );
+      router.push(`/task/${task.id}`);
+    } catch {
+      setLoadingNode(null);
+    }
+  }
 
   return (
     <>
@@ -141,8 +146,8 @@ export default function SessionPage() {
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div>
-            <p className="text-xs text-muted">ОГЭ · Математика</p>
-            <h1 className="text-xl font-bold">Задания на сегодня</h1>
+            <p className="text-xs text-muted">ЕГЭ · Математика (Профильная)</p>
+            <h1 className="text-xl font-bold">Задание 1 — Планиметрия</h1>
           </div>
         </div>
 
@@ -150,39 +155,44 @@ export default function SessionPage() {
         <div className="mb-10 flex items-center gap-4 text-sm text-muted">
           {isLoading ? (
             <span className="h-4 w-36 animate-pulse rounded bg-fg/10" />
-          ) : tasks.length > 0 ? (
+          ) : nodes.length > 0 ? (
             <>
               <span>
-                <span className="font-semibold text-fg">{tasks.length}</span> задания
+                <span className="font-semibold text-fg">{completedCount}</span>
+                {" / "}
+                <span className="font-semibold text-fg">{nodes.length}</span> тем
               </span>
-              <span className="text-border">·</span>
-              <span>~{totalMin} мин</span>
+              {completedCount === nodes.length && (
+                <span className="text-success font-medium">Все темы пройдены ✓</span>
+              )}
             </>
           ) : (
-            <span className="text-emerald-500 font-medium">Всё сделано сегодня ✓</span>
+            <span className="text-muted">Загрузка...</span>
           )}
         </div>
 
         {/* Path */}
         <div className="flex flex-col items-center">
           {isLoading
-            ? Array.from({ length: 3 }).map((_, i) => (
+            ? Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex flex-col items-center">
                   <div className="h-[72px] w-[72px] rounded-full bg-fg/10 animate-pulse" />
-                  {i < 2 && <div className="my-1 h-16 w-0.5 bg-border/40" />}
+                  {i < 4 && <div className="my-1 h-16 w-0.5 bg-border/40" />}
                 </div>
               ))
-            : tasks.map((task, i) => {
+            : nodes.map((node, i) => {
                 const offset = ZIGZAG_OFFSETS[i % ZIGZAG_OFFSETS.length];
                 const nextOffset = ZIGZAG_OFFSETS[(i + 1) % ZIGZAG_OFFSETS.length];
-                const isLast = i === tasks.length - 1;
+                const isLast = i === nodes.length - 1;
 
                 return (
-                  <div key={task.id} className="flex flex-col items-center w-full">
+                  <div key={node.topic_id} className="flex flex-col items-center w-full">
                     <PathNode
-                      task={task}
+                      node={node}
                       index={i}
                       offset={offset}
+                      onTap={handleNodeTap}
+                      loading={loadingNode === node.topic_id}
                     />
                     {!isLast && (
                       <Connector fromOffset={offset} toOffset={nextOffset} />
@@ -191,8 +201,7 @@ export default function SessionPage() {
                 );
               })}
 
-          {/* End marker */}
-          {!isLoading && tasks.length > 0 && (
+          {!isLoading && nodes.length > 0 && (
             <div className="mt-6 flex flex-col items-center gap-2 opacity-40">
               <div className="flex gap-1">
                 {[0, 1, 2].map((i) => (

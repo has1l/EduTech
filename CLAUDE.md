@@ -109,9 +109,9 @@
 
 ```
 Клиент → Яндекс OAuth → получает code
-Клиент → POST /auth/yandex { code } → наш API
+Клиент → POST /auth/yandex { code, redirect_uri } → наш API
 API → exchange code на access_token (Яндекс)
-API → GET /info (Яндекс) → { id, email, name }
+API → GET https://login.yandex.ru/info → { id, email, name }
 API → ищет/создаёт юзера в Postgres по yandex_id
 API → выдаёт наш JWT (access + refresh)
 Клиент → сохраняет JWT → онбординг
@@ -415,7 +415,7 @@ streaks (
 ```
 POST   /auth/register              — email/password
 POST   /auth/login                 — email/password
-POST   /auth/yandex                — ⭐ основной способ
+POST   /auth/yandex                — ⭐ Яндекс ID OAuth code exchange
 POST   /auth/refresh
 POST   /auth/logout
 
@@ -431,6 +431,7 @@ POST   /sessions/{id}/complete
 
 GET    /tasks/{id}
 POST   /tasks/{id}/answer
+GET    /tasks/image-proxy?url=...  — проксирует картинки bank-ege.ru (Referer bypass)
 
 POST   /dialogue/{id}/reply
 GET    /dialogue/{id}/stream        — SSE
@@ -503,8 +504,8 @@ ACCESS_TOKEN_TTL      — 900 (15 минут)
 REFRESH_TOKEN_TTL     — 2592000 (30 дней)
 OPENAI_API_KEY
 YANDEX_CLIENT_ID
-YANDEX_CLIENT_SECRET
-YANDEX_REDIRECT_URI_WEB
+YANDEX_CLIENT_SECRET  — хранить только на backend/Railway
+YANDEX_REDIRECT_URI_WEB = https://edu-tech-self.vercel.app/auth/yandex/callback
 YANDEX_REDIRECT_URI_MOBILE
 SENTRY_DSN
 ENVIRONMENT           — development | production
@@ -512,9 +513,9 @@ ENVIRONMENT           — development | production
 
 ### Vercel (web)
 ```
-NEXT_PUBLIC_API_URL           — https://api.edutech.up.railway.app
+NEXT_PUBLIC_API_URL           — https://edutech-production-3cad.up.railway.app
 NEXT_PUBLIC_YANDEX_CLIENT_ID
-NEXT_PUBLIC_YANDEX_REDIRECT_URI
+NEXT_PUBLIC_YANDEX_REDIRECT_URI = https://edu-tech-self.vercel.app/auth/yandex/callback
 ```
 
 ### iOS (Info.plist / Config.swift)
@@ -534,12 +535,66 @@ URL_SCHEME = edutech
 - Rate limiting через Redis (10 AI-вызовов в минуту на юзера)
 - CORS — белый список доменов
 - OpenAI ключ ТОЛЬКО на бэкенде, никогда не на клиенте
+- YANDEX_CLIENT_SECRET ТОЛЬКО на бэкенде, никогда не в `NEXT_PUBLIC_*`
 - Валидация через Pydantic
 - Яндекс OAuth state параметр для защиты от CSRF
+- В Яндекс OAuth должны быть включены scopes `login:info` и `login:email`
 
 ---
 
-## 13. Стоимость на хакатон
+## 13. Что уже добавлено
+
+### Яндекс ID OAuth
+
+Реализован рабочий web-flow входа через Яндекс ID:
+
+- На `/login` и `/register` добавлена кнопка `Войти через Яндекс ID`
+- Frontend генерирует `state`, сохраняет его в `localStorage` и редиректит на `https://oauth.yandex.ru/authorize`
+- Callback страница: `/auth/yandex/callback`
+- Callback проверяет `state`, отправляет `code` на backend и сохраняет нашу JWT-сессию
+- Backend endpoint: `POST /api/v1/auth/yandex`
+- Backend меняет `code` на OAuth token через Яндекс, получает профиль через `login.yandex.ru/info`
+- Пользователь ищется по `yandex_id`; если его нет, backend линкует существующего пользователя по email или создаёт нового
+- После входа пользователь попадает в `/onboarding` или `/today`
+
+### Задачи из bank-ege.ru с картинками
+
+Реализован импорт задач из `bank-ege.ru` через их публичный API:
+
+- `bank_ege_client.py` — лениво подгружает задачи когда в БД не хватает для дневной сессии
+- Картинки в задачах — это `data:image/png;base64,...` URI, встроенные в HTML `<img src>`, а не внешние URL
+- `_extract_image` принимает как `http://...`, так и `data:image/...` URI
+- `question_image_url` — тип `Text` (base64 не влезает в varchar). Миграция: `0004_task_image_text.py`
+- `_strip_html` сохраняет структуру текста: `<br>` → `\n`, `<li>` → `• `, `<p>/<div>` → `\n`
+- Задания с текстом «...» или «…» (усечённые) принимаются только если есть картинка — текст служит подписью
+- Ротация вариантов: Redis ключ `bank_ege:used_variants` — НЕ чистить при сбросе тестовых данных (иначе тот же вариант выпадет снова)
+- Правильный сброс тест-данных: `TRUNCATE` нужных таблиц + `DEL today_session:*` (не FLUSHDB)
+
+### AI-диалог: картинки + «Объяснить сразу»
+
+- `stream_socratic` передаёт картинку задачи GPT-4o через vision API (content type `image_url`)
+- Картинка шлётся только на **первый ход** диалога (`dialogue.messages` пустой) — base64 URI это 30-80k токенов, на каждый ход слишком дорого
+- `hint_level=3` — GPT объясняет полностью и называет правильный ответ (правило «НЕ называй ответ» снимается)
+- `POST /dialogue/{id}/give-up` — устанавливает `hint_level=3`, возвращает `{correct_answer}`, затем запускается stream с полным объяснением
+- После «Объяснить сразу» поле ввода реплик остаётся открытым для уточняющих вопросов
+- Кнопка «Следующее задание» появляется сразу после завершения stream в фазе `giveup`
+
+### SSE + SQLAlchemy: важный паттерн
+
+FastAPI закрывает `db` сессию (из `Depends(get_db)`) сразу когда endpoint-функция возвращает `EventSourceResponse(generator())` — до того как генератор начал стримить. Поэтому `await db.commit()` внутри генератора молча фейлится.
+
+**Правило:** любые записи в БД внутри SSE-генератора делать через `async with SessionLocal() as session:` (свежая сессия), не через `db` из зависимости. Плюс `flag_modified(obj, "field")` для JSONB-полей чтобы SQLAlchemy точно видел изменение.
+
+### Отображение задач на фронте
+
+- Картинки: если URL начинается с `data:` — вставляется напрямую; иначе через `/tasks/image-proxy?url=...`
+- `/tasks/image-proxy` — эндпоинт на бэкенде с заголовком `Referer: https://bank-ege.ru/` для обхода hotlink-защиты
+- Текст задачи скрывается когда есть картинка и текст обрывается на «...» / «…»
+- `whitespace-pre-wrap` на тексте задачи — сохраняет переносы строк из `_strip_html`
+
+---
+
+## 14. Стоимость на хакатон
 
 | Сервис | Цена |
 |---|---|
@@ -552,7 +607,7 @@ URL_SCHEME = edutech
 
 ---
 
-## 14. Дизайн
+## 15. Дизайн
 
 Стиль вдохновлён Т-Банком: жёлтый (#FFD000) + чёрный + белый, минималистичный UI, жирная типографика. Не копируем 1-в-1.
 
@@ -560,7 +615,7 @@ URL_SCHEME = edutech
 
 ---
 
-## 15. Порядок работы
+## 16. Порядок работы
 
 1. Бэкенд скелет — FastAPI на Railway, PostgreSQL, базовая auth
 2. Схема БД — все таблицы + миграции Alembic
@@ -575,7 +630,7 @@ URL_SCHEME = edutech
 
 ---
 
-## 16. Стиль работы
+## 17. Стиль работы
 
 - Общение с пользователем (Родион) на русском, неформально, коротко
 - Не писать комментариев в коде «что делает функция» — имена должны говорить сами

@@ -33,3 +33,17 @@ class AnswerResult(BaseModel):
 class TodaySession(BaseModel):
     session_id: str
     tasks: list[TaskOut]
+
+
+class PathNodeOut(BaseModel):
+    topic_id: UUID
+    title: str
+    subtopic_number: str
+    task_number: int
+    state: str  # completed | current | locked
+    attempts_count: int
+    correct_count: int
+
+
+class SessionPathOut(BaseModel):
+    nodes: list[PathNodeOut]

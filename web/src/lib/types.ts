@@ -44,3 +44,17 @@ export type TodaySession = {
   session_id: string;
   tasks: Task[];
 };
+
+export type PathNode = {
+  topic_id: string;
+  title: string;
+  subtopic_number: string;
+  task_number: number;
+  state: "completed" | "current" | "locked";
+  attempts_count: number;
+  correct_count: number;
+};
+
+export type SessionPath = {
+  nodes: PathNode[];
+};

@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 from datetime import date
 from uuid import UUID
 
@@ -12,9 +13,13 @@ from app.models.dialogue import AIDialogue
 from app.models.streak import Streak
 from app.models.task import Task
 from app.models.theory import TheorySection
-from app.models.user import User
-from app.schemas.tasks import AnswerResult, TaskOut, TodaySession
-from app.services.bank_ege_client import fetch_and_store_tasks
+from app.models.topic import Topic
+from app.schemas.tasks import AnswerResult, PathNodeOut, SessionPathOut, TaskOut, TodaySession
+from app.services.bank_ege_client import (
+    _EGE_SUBJECT_CODE,
+    fetch_and_store_tasks,
+    fetch_tasks_for_subtopic,
+)
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +36,7 @@ async def get_task(task_id: UUID, db: AsyncSession) -> Task | None:
 
 async def process_answer(
     task_id: UUID,
-    user: User,
+    user,
     answer: str,
     time_spent_sec: int | None,
     db: AsyncSession,
@@ -66,7 +71,115 @@ async def process_answer(
     return AnswerResult(correct=is_correct, dialogue_id=dialogue_id)
 
 
-async def get_today_session(user: User, db: AsyncSession, redis: Redis) -> TodaySession:
+async def get_session_path(user, db: AsyncSession) -> SessionPathOut:
+    """Returns the EGE task-1 subtopic path with user progress."""
+    from app.models.subject import Subject
+
+    subj = await db.scalar(select(Subject).where(Subject.code == _EGE_SUBJECT_CODE))
+    if subj is None:
+        return SessionPathOut(nodes=[])
+
+    topics_result = await db.scalars(
+        select(Topic)
+        .where(Topic.subject_id == subj.id, Topic.exam_task_number == 1)
+        .order_by(Topic.code)
+    )
+    topics = list(topics_result.all())
+
+    if not topics:
+        return SessionPathOut(nodes=[])
+
+    topic_ids = [t.id for t in topics]
+
+    # Count attempts per topic for this user
+    rows = await db.execute(
+        select(Task.topic_id, func.count(Attempt.id), func.sum(Attempt.is_correct.cast(type_=None)))
+        .join(Attempt, Attempt.task_id == Task.id)
+        .where(Attempt.user_id == user.id, Task.topic_id.in_(topic_ids))
+        .group_by(Task.topic_id)
+    )
+    stats: dict[UUID, tuple[int, int]] = {}
+    for topic_id, total, correct in rows:
+        stats[topic_id] = (int(total), int(correct or 0))
+
+    nodes: list[PathNodeOut] = []
+    found_current = False
+
+    for topic in topics:
+        attempts_count, correct_count = stats.get(topic.id, (0, 0))
+        is_completed = correct_count >= 1
+
+        if is_completed:
+            state = "completed"
+        elif not found_current:
+            state = "current"
+            found_current = True
+        else:
+            state = "locked"
+
+        nodes.append(PathNodeOut(
+            topic_id=topic.id,
+            title=topic.title,
+            subtopic_number=topic.code,
+            task_number=topic.exam_task_number or 1,
+            state=state,
+            attempts_count=attempts_count,
+            correct_count=correct_count,
+        ))
+
+    return SessionPathOut(nodes=nodes)
+
+
+async def get_random_task_for_topic(
+    topic_id: UUID,
+    user,
+    db: AsyncSession,
+    redis: Redis,
+) -> Task | None:
+    topic = await db.get(Topic, topic_id)
+    if topic is None:
+        return None
+
+    # Tasks user already answered correctly for this topic
+    done_correctly = await db.scalars(
+        select(Attempt.task_id)
+        .where(Attempt.user_id == user.id, Attempt.is_correct == True)  # noqa: E712
+        .join(Task, Task.id == Attempt.task_id)
+        .where(Task.topic_id == topic_id)
+    )
+    done_ids = set(done_correctly.all())
+
+    # Prefer tasks not yet solved correctly
+    available = await db.scalars(
+        select(Task)
+        .where(Task.topic_id == topic_id, Task.id.notin_(done_ids))
+        .limit(50)
+    )
+    tasks = list(available.all())
+
+    if not tasks and topic.bank_ege_topic_id:
+        await fetch_tasks_for_subtopic(
+            bank_ege_topic_id=topic.bank_ege_topic_id,
+            exam_task_number=topic.exam_task_number or 1,
+            topic_id=topic_id,
+            needed=15,
+        )
+        available = await db.scalars(
+            select(Task)
+            .where(Task.topic_id == topic_id, Task.id.notin_(done_ids))
+            .limit(50)
+        )
+        tasks = list(available.all())
+
+    # Fall back to any task in topic if all are solved
+    if not tasks:
+        all_tasks = await db.scalars(select(Task).where(Task.topic_id == topic_id).limit(50))
+        tasks = list(all_tasks.all())
+
+    return random.choice(tasks) if tasks else None
+
+
+async def get_today_session(user, db: AsyncSession, redis: Redis) -> TodaySession:
     cache_key = _today_key(user.id)
     cached = await redis.get(cache_key)
 
@@ -83,7 +196,6 @@ async def get_today_session(user: User, db: AsyncSession, redis: Redis) -> Today
         tasks_q = await db.execute(select(Task).where(Task.id.in_(task_ids)))
         tasks = list(tasks_q.scalars().all())
         tasks.sort(key=lambda t: task_ids.index(str(t.id)))
-        # Cache had stale IDs (e.g. after migration) — fall through to rebuild
         if not tasks:
             await redis.delete(cache_key)
             cached = None
@@ -112,7 +224,7 @@ async def get_today_session(user: User, db: AsyncSession, redis: Redis) -> Today
     )
 
 
-async def complete_session(session_id: str, user: User, db: AsyncSession) -> None:
+async def complete_session(session_id: str, user, db: AsyncSession) -> None:
     parts = session_id.split(":")
     if len(parts) != 2 or parts[0] != str(user.id):
         return
@@ -147,7 +259,7 @@ async def complete_session(session_id: str, user: User, db: AsyncSession) -> Non
 
 async def load_dialogue_context(
     dialogue_id: UUID,
-    user: User,
+    user,
     db: AsyncSession,
 ) -> tuple[AIDialogue, Task, Attempt, TheorySection | None] | None:
     dialogue = await db.get(AIDialogue, dialogue_id)

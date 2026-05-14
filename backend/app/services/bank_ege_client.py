@@ -286,6 +286,117 @@ async def fetch_tasks_for_subtopic(
             return 0
 
 
+# EGE variants with full task 1–12 coverage (confirmed manually)
+_DIAGNOSTIC_VARIANT_UUIDS = [
+    "4ac2caa8-1258-4b22-bff1-b424bc5553ac",  # variant 39200
+    "f0783d46-26fb-4b98-9b49-9f5dffefe850",  # variant 54021
+    "a957f9ff-061e-4a99-979c-2b64a1ea81aa",  # variant 94584
+    "4ddf234a-7ae4-469d-ac49-3b308c492131",  # variant 107842
+    "82fec9d5-38da-41f1-a8b2-ef8617ed28ac",  # variant 113909
+]
+
+
+async def fetch_and_store_ege_variant(db) -> list[Task]:
+    """
+    Picks a random EGE variant with full task 1–12 coverage,
+    imports tasks to DB, returns Task list ordered by task number.
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession as _AS
+    variant_uuid = random.choice(_DIAGNOSTIC_VARIANT_UUIDS)
+
+    async with httpx.AsyncClient(headers=_HEADERS, timeout=20) as client:
+        try:
+            r = await client.get(f"{_API}/ege/exam_variants/{variant_uuid}/tasks")
+            r.raise_for_status()
+            raw_tasks = r.json()
+        except Exception as exc:
+            log.warning("bank-ege variant fetch failed: %s", exc)
+            return []
+
+    if not isinstance(raw_tasks, list):
+        return []
+
+    # Filter part 1 (tasks 1–12 with written answers), deduplicate by number
+    seen: dict[int, dict] = {}
+    for t in raw_tasks:
+        n = t.get("number", 99)
+        if n <= 12 and (t.get("task_question") or {}).get("answers") and n not in seen:
+            seen[n] = t
+
+    subj = await db.scalar(select(Subject).where(Subject.code == _EGE_SUBJECT_CODE))
+    if subj is None:
+        return []
+
+    topic_rows = await db.scalars(select(Topic).where(Topic.subject_id == subj.id))
+    topic_by_bank_id: dict[int, Topic] = {
+        t.bank_ege_topic_id: t for t in topic_rows.all() if t.bank_ege_topic_id
+    }
+
+    rows = await db.scalars(select(Task.source_id).where(Task.source_id.isnot(None)))
+    existing_src: set[str] = set(rows.all())
+
+    result: list[Task] = []
+    new_added = False
+
+    for task_num in sorted(seen.keys()):
+        raw = seen[task_num]
+        src_id = f"ege_{raw['id']}"
+
+        if src_id in existing_src:
+            existing = await db.scalar(select(Task).where(Task.source_id == src_id))
+            if existing:
+                result.append(existing)
+                continue
+
+        q = raw.get("task_question") or {}
+        answers = q.get("answers") or []
+        correct = str(answers[0].get("answer", "")).strip() if answers else ""
+        if not correct:
+            continue
+
+        html = q.get("description") or ""
+        question_text = _strip_html(html)
+        image_url = _extract_image(html)
+        if len(question_text) < 5 and not image_url:
+            continue
+
+        bank_topic_id = (raw.get("exam_topic") or {}).get("id")
+        topic = topic_by_bank_id.get(bank_topic_id) if bank_topic_id else None
+        if topic is None:
+            for st in ALL_EGE_SUBTOPICS:
+                if st["exam_task_number"] == task_num:
+                    topic = topic_by_bank_id.get(st["bank_ege_topic_id"])
+                    if topic:
+                        break
+        if topic is None:
+            continue
+
+        solution = _strip_html(raw.get("comment") or "")
+        new_task = Task(
+            id=uuid4(),
+            topic_id=topic.id,
+            type="short_answer",
+            question_text=question_text,
+            question_image_url=image_url,
+            options=None,
+            correct_answer=correct,
+            solution_steps={"steps": [solution]} if solution else None,
+            typical_errors=None,
+            theory_section_ids=[],
+            difficulty=2,
+            source_id=src_id,
+        )
+        db.add(new_task)
+        existing_src.add(src_id)
+        result.append(new_task)
+        new_added = True
+
+    if new_added:
+        await db.flush()
+
+    return result
+
+
 # Legacy: fetch a full OGE variant (kept for backward compat, unused in new flow)
 _OGE_SUBJECT_ID = 27
 _OGE_SUBJECT_CODE = "math_oge"

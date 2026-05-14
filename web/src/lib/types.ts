@@ -69,3 +69,23 @@ export type SessionPath = {
 export type SubtopicSession = {
   tasks: Task[];
 };
+
+export type DiagnosticSession = {
+  session_id: string;
+  tasks: Task[];
+};
+
+export type DiagnosticSectionResult = {
+  task_number: number;
+  title: string;
+  difficulty: number;
+  is_correct: boolean;
+  correct_answer: string;
+  topic_title: string;
+};
+
+export type DiagnosticResult = {
+  total: number;
+  correct: number;
+  sections: DiagnosticSectionResult[];
+};

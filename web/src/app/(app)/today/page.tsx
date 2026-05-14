@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Lock } from "lucide-react";
+import { Lock, FlaskConical } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { Button } from "@/components/ui/button";
 import { useMe, useTodaySession } from "@/lib/queries";
@@ -119,6 +119,22 @@ export default function TodayPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Diagnostic banner */}
+        {showMath && (
+          <Link href="/diagnostic" className="block">
+            <div className="rounded-2xl border border-accent/30 bg-accent/5 px-5 py-4 flex items-center gap-4 hover:bg-accent/10 transition">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-accent">
+                <FlaskConical className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Диагностика знаний</p>
+                <p className="text-xs text-muted mt-0.5">12 заданий из варианта ЕГЭ — узнай свои слабые места</p>
+              </div>
+              <Lock className="h-4 w-4 text-muted shrink-0 hidden" />
+            </div>
+          </Link>
         )}
 
         {/* Coming soon courses */}

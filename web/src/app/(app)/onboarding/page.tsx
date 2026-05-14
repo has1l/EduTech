@@ -5,8 +5,6 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Field } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { apiErrorMessage } from "@/lib/api";
 import { useUpdateProfile } from "@/lib/queries";
 import { cn } from "@/lib/utils";

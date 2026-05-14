@@ -39,6 +39,10 @@ export default function TodayPage() {
   const { data: session, isLoading } = useTodaySession();
   const firstName = me?.name?.split(" ")[0] ?? "ученик";
 
+  const isOge = me?.grade != null && me.grade <= 9;
+  const examTag = isOge ? "ОГЭ · Математика" : "ЕГЭ · Профильная математика";
+  const examTitle = isOge ? "Часть 1 — Алгебра и геометрия" : "Задания №1–12 (Часть 1)";
+
   const tasks = session?.tasks ?? [];
   const totalMin = tasks.reduce((s, t) => s + t.difficulty * 2, 0);
 
@@ -88,10 +92,10 @@ export default function TodayPage() {
             <div className="rounded-3xl border border-border p-6 space-y-4">
               <div>
                 <span className="text-xs font-semibold text-accent">
-                  ОГЭ · Математика
+                  {examTag}
                 </span>
                 <h2 className="mt-1 text-lg font-bold">
-                  Часть 1 — Алгебра и геометрия
+                  {examTitle}
                 </h2>
                 <p className="mt-1 text-sm text-muted">
                   Адаптивные задания по слабым темам + сократический AI‑разбор ошибок
@@ -130,7 +134,7 @@ export default function TodayPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold">Диагностика знаний</p>
-                <p className="text-xs text-muted mt-0.5">12 заданий из варианта ЕГЭ — узнай свои слабые места</p>
+                <p className="text-xs text-muted mt-0.5">12 заданий из варианта — узнай свои слабые места</p>
               </div>
               <Lock className="h-4 w-4 text-muted shrink-0 hidden" />
             </div>

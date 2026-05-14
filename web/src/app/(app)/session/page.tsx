@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Zap, Star, Lock, CheckCircle2 } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
-import { useSessionPath } from "@/lib/queries";
+import { useMe, useSessionPath } from "@/lib/queries";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -159,7 +159,12 @@ function Connector({ fromOffset, toOffset }: { fromOffset: number; toOffset: num
 export default function SessionPage() {
   const router = useRouter();
   const tokens = useAuth((s) => s.tokens);
+  const { data: me } = useMe();
   const { data: path, isLoading } = useSessionPath();
+
+  const isOge = me?.grade != null && me.grade <= 9;
+  const examLabel = isOge ? "ОГЭ · Математика" : "ЕГЭ · Профильная математика";
+  const taskRangeLabel = isOge ? "Задания 6–19" : "Задания 1–12";
   const [loadingNode, setLoadingNode] = useState<string | null>(null);
 
   const sections = path?.sections ?? [];
@@ -192,8 +197,8 @@ export default function SessionPage() {
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div>
-            <p className="text-xs text-muted">ЕГЭ · Профильная математика</p>
-            <h1 className="text-xl font-bold">Задания 1–12</h1>
+            <p className="text-xs text-muted">{examLabel}</p>
+            <h1 className="text-xl font-bold">{taskRangeLabel}</h1>
           </div>
         </div>
 

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MathText } from "@/components/math-text";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useMe } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import type { DiagnosticResult, DiagnosticSession, Task } from "@/lib/types";
 
@@ -35,6 +36,10 @@ function isEllipsis(text: string) {
 export default function DiagnosticPage() {
   const router = useRouter();
   const tokens = useAuth((s) => s.tokens);
+  const { data: me } = useMe();
+  const examLabel = me?.grade != null && me.grade <= 9
+    ? "ОГЭ · Математика"
+    : "ЕГЭ · Профильная математика";
 
   const [session, setSession] = useState<DiagnosticSession | null>(null);
   const [loadingStart, setLoadingStart] = useState(true);
@@ -101,7 +106,7 @@ export default function DiagnosticPage() {
         <AppNav />
         <main className="mx-auto max-w-md px-6 py-16 flex flex-col items-center gap-4 text-center">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
-          <p className="text-sm text-muted">Загружаем задания из варианта ЕГЭ…</p>
+          <p className="text-sm text-muted">Загружаем задания для диагностики…</p>
         </main>
       </>
     );
@@ -126,7 +131,7 @@ export default function DiagnosticPage() {
       <main className="mx-auto max-w-md px-4 py-6 flex flex-col gap-6">
         {/* Header */}
         <div>
-          <p className="text-xs text-muted mb-1">Диагностика · ЕГЭ Профильная математика</p>
+          <p className="text-xs text-muted mb-1">Диагностика · {examLabel}</p>
           <h1 className="text-lg font-bold">Задание {task.topic_id ? current + 1 : "?"}</h1>
         </div>
 

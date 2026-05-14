@@ -9,7 +9,7 @@ import { useSessionPath } from "@/lib/queries";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import type { PathNode, Task } from "@/lib/types";
+import type { PathNode, SubtopicSession } from "@/lib/types";
 
 const ZIGZAG_OFFSETS = [56, 16, -56, -16, 56, 16, -56, -16];
 
@@ -125,10 +125,13 @@ export default function SessionPage() {
     if (!tokens) return;
     setLoadingNode(node.topic_id);
     try {
-      const { data: task } = await api.get<Task>(
-        `/tasks/random-by-topic?topic_id=${node.topic_id}`,
+      const { data: session } = await api.get<SubtopicSession>(
+        `/tasks/subtopic-session?topic_id=${node.topic_id}&count=5`,
       );
-      router.push(`/task/${task.id}`);
+      const [first, ...rest] = session.tasks;
+      const queue = rest.map((t) => t.id).join(",");
+      const url = queue ? `/task/${first.id}?queue=${queue}` : `/task/${first.id}`;
+      router.push(url);
     } catch {
       setLoadingNode(null);
     }

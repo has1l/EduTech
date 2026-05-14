@@ -5,8 +5,8 @@ from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import Response
 
 from app.core.deps import CurrentUser, DbSession, RedisClient
-from app.schemas.tasks import AnswerIn, AnswerResult, TaskOut
-from app.services.task_service import get_random_task_for_topic, get_task, process_answer
+from app.schemas.tasks import AnswerIn, AnswerResult, SubtopicSession, TaskOut
+from app.services.task_service import get_random_tasks_for_topic, get_task, process_answer
 
 router = APIRouter()
 
@@ -39,17 +39,18 @@ async def image_proxy(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to fetch image")
 
 
-@router.get("/random-by-topic")
-async def random_task_by_topic(
+@router.get("/subtopic-session", response_model=SubtopicSession)
+async def subtopic_session(
     topic_id: UUID = Query(...),
+    count: int = Query(default=5, ge=1, le=20),
     user: CurrentUser = None,
     db: DbSession = None,
     redis: RedisClient = None,
-) -> TaskOut:
-    task = await get_random_task_for_topic(topic_id, user, db, redis)
-    if task is None:
+) -> SubtopicSession:
+    tasks = await get_random_tasks_for_topic(topic_id, user, db, count)
+    if not tasks:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No tasks for this topic")
-    return TaskOut.model_validate(task)
+    return SubtopicSession(tasks=[TaskOut.model_validate(t) for t in tasks])
 
 
 @router.get("/{task_id}", response_model=TaskOut)

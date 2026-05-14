@@ -58,3 +58,7 @@ export type PathNode = {
 export type SessionPath = {
   nodes: PathNode[];
 };
+
+export type SubtopicSession = {
+  tasks: Task[];
+};

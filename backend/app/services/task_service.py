@@ -130,15 +130,15 @@ async def get_session_path(user, db: AsyncSession) -> SessionPathOut:
     return SessionPathOut(nodes=nodes)
 
 
-async def get_random_task_for_topic(
+async def get_random_tasks_for_topic(
     topic_id: UUID,
     user,
     db: AsyncSession,
-    redis: Redis,
-) -> Task | None:
+    count: int = 5,
+) -> list[Task]:
     topic = await db.get(Topic, topic_id)
     if topic is None:
-        return None
+        return []
 
     # Tasks user already answered correctly for this topic
     done_correctly = await db.scalars(
@@ -155,28 +155,33 @@ async def get_random_task_for_topic(
         .where(Task.topic_id == topic_id, Task.id.notin_(done_ids))
         .limit(50)
     )
-    tasks = list(available.all())
+    pool = list(available.all())
 
-    if not tasks and topic.bank_ege_topic_id:
+    # Fetch from bank-ege if not enough tasks
+    if len(pool) < count and topic.bank_ege_topic_id:
         await fetch_tasks_for_subtopic(
             bank_ege_topic_id=topic.bank_ege_topic_id,
             exam_task_number=topic.exam_task_number or 1,
             topic_id=topic_id,
-            needed=15,
+            needed=max(15, count * 3),
         )
         available = await db.scalars(
             select(Task)
             .where(Task.topic_id == topic_id, Task.id.notin_(done_ids))
             .limit(50)
         )
-        tasks = list(available.all())
+        pool = list(available.all())
 
     # Fall back to any task in topic if all are solved
-    if not tasks:
+    if len(pool) < count:
         all_tasks = await db.scalars(select(Task).where(Task.topic_id == topic_id).limit(50))
-        tasks = list(all_tasks.all())
+        pool = list(all_tasks.all())
 
-    return random.choice(tasks) if tasks else None
+    if not pool:
+        return []
+
+    random.shuffle(pool)
+    return pool[:count]
 
 
 async def get_today_session(user, db: AsyncSession, redis: Redis) -> TodaySession:

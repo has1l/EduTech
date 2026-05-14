@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BookOpen, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
@@ -26,8 +26,23 @@ type TheoryRef = { title: string; section_id: string };
 export default function TaskPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const tokens = useAuth((s) => s.tokens);
   const { data: task, isLoading } = useTask(id);
+
+  const queueParam = searchParams.get("queue") ?? "";
+  const queue = queueParam ? queueParam.split(",").filter(Boolean) : [];
+  const totalInSession = queue.length + 1;
+
+  function goNext() {
+    if (queue.length === 0) {
+      goNext();
+    } else {
+      const [next, ...rest] = queue;
+      const url = rest.length > 0 ? `/task/${next}?queue=${rest.join(",")}` : `/task/${next}`;
+      router.push(url);
+    }
+  }
 
   const [answer, setAnswer] = useState("");
   const [phase, setPhase] = useState<Phase>("question");
@@ -161,13 +176,26 @@ export default function TaskPage() {
       <AppNav />
       <main className="mx-auto max-w-2xl space-y-5 px-6 py-10">
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <Link href="/session" className="text-muted transition hover:text-fg">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-          <span className="text-sm text-muted">
-            {DIFFICULTY_LABEL[task.difficulty]}
-          </span>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Link href="/session" className="text-muted transition hover:text-fg">
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+            <span className="text-sm text-muted flex-1">{DIFFICULTY_LABEL[task.difficulty]}</span>
+            {totalInSession > 1 && (
+              <span className="text-xs text-muted tabular-nums">
+                {totalInSession - queue.length} / {totalInSession}
+              </span>
+            )}
+          </div>
+          {totalInSession > 1 && (
+            <div className="h-1.5 w-full rounded-full bg-fg/10">
+              <div
+                className="h-full rounded-full bg-accent transition-all duration-300"
+                style={{ width: `${((totalInSession - queue.length) / totalInSession) * 100}%` }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Question */}
@@ -223,7 +251,7 @@ export default function TaskPage() {
           <section className="rounded-3xl border border-success/40 bg-success/10 p-5 text-center">
             <p className="text-lg font-bold text-success">Верно!</p>
             <p className="mt-1 text-sm text-muted">Отличная работа</p>
-            <Button className="mt-4" onClick={() => router.push("/session")}>
+            <Button className="mt-4" onClick={() => goNext()}>
               Следующее задание
             </Button>
           </section>
@@ -312,7 +340,7 @@ export default function TaskPage() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => router.push("/session")}
+                onClick={() => goNext()}
               >
                 Следующее задание
               </Button>

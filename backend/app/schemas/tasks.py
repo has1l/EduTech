@@ -35,6 +35,10 @@ class TodaySession(BaseModel):
     tasks: list[TaskOut]
 
 
+class SubtopicSession(BaseModel):
+    tasks: list[TaskOut]
+
+
 class PathNodeOut(BaseModel):
     topic_id: UUID
     title: str

@@ -82,9 +82,8 @@ async def get_session_path(user, db: AsyncSession) -> SessionPathOut:
     topics_result = await db.scalars(
         select(Topic)
         .where(Topic.subject_id == subj.id, Topic.exam_task_number == 1)
-        .order_by(Topic.code)
     )
-    topics = list(topics_result.all())
+    topics = sorted(topics_result.all(), key=lambda t: float(t.code))
 
     if not topics:
         return SessionPathOut(nodes=[])

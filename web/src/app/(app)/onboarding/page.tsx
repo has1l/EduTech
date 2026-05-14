@@ -19,8 +19,8 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 const GRADES = [
-  { value: 9, label: "9 класс", subtitle: "ОГЭ" },
-  { value: 11, label: "11 класс", subtitle: "ЕГЭ" },
+  { value: 9, label: "ОГЭ", subtitle: "9 класс" },
+  { value: 11, label: "ЕГЭ", subtitle: "11 класс" },
 ] as const;
 
 const OGE_SCORES = [

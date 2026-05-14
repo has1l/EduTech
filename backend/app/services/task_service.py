@@ -5,7 +5,7 @@ from datetime import date
 from uuid import UUID
 
 from redis.asyncio import Redis
-from sqlalchemy import func, select
+from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attempt import Attempt
@@ -93,7 +93,7 @@ async def get_session_path(user, db: AsyncSession) -> SessionPathOut:
 
     # Count attempts per topic for this user
     rows = await db.execute(
-        select(Task.topic_id, func.count(Attempt.id), func.sum(Attempt.is_correct.cast(type_=None)))
+        select(Task.topic_id, func.count(Attempt.id), func.sum(Attempt.is_correct.cast(Integer)))
         .join(Attempt, Attempt.task_id == Task.id)
         .where(Attempt.user_id == user.id, Task.topic_id.in_(topic_ids))
         .group_by(Task.topic_id)

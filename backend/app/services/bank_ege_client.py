@@ -144,7 +144,7 @@ async def fetch_tasks_for_subtopic(
                 if inserted >= needed:
                     break
 
-                src_id = str(t.get("id", ""))
+                src_id = f"ege_{t.get('id', '')}"
                 if not src_id or src_id in existing_ids:
                     continue
 

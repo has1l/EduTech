@@ -41,6 +41,7 @@ export function startYandexAuth() {
     redirect_uri: redirectUri,
     scope: "login:info login:email",
     state,
+    force_confirm: "yes",
   });
 
   window.location.assign(`https://oauth.yandex.ru/authorize?${params}`);

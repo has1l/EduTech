@@ -17,13 +17,11 @@ type NodeState = "completed" | "current" | "locked";
 
 function PathNode({
   node,
-  index,
   offset,
   onTap,
   loading,
 }: {
   node: PathNode;
-  index: number;
   offset: number;
   onTap: (node: PathNode) => void;
   loading: boolean;
@@ -189,7 +187,6 @@ export default function SessionPage() {
                   <div key={node.topic_id} className="flex flex-col items-center w-full">
                     <PathNode
                       node={node}
-                      index={i}
                       offset={offset}
                       onTap={handleNodeTap}
                       loading={loadingNode === node.topic_id}

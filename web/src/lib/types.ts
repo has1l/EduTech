@@ -55,8 +55,15 @@ export type PathNode = {
   correct_count: number;
 };
 
-export type SessionPath = {
+export type TaskSection = {
+  task_number: number;
+  title: string;
+  difficulty: number;
   nodes: PathNode[];
+};
+
+export type SessionPath = {
+  sections: TaskSection[];
 };
 
 export type SubtopicSession = {

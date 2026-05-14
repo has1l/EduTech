@@ -9,13 +9,58 @@ import { useSessionPath } from "@/lib/queries";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import type { PathNode, SubtopicSession } from "@/lib/types";
+import type { PathNode, SubtopicSession, TaskSection } from "@/lib/types";
 
 const ZIGZAG_OFFSETS = [56, 16, -56, -16, 56, 16, -56, -16];
 
 type NodeState = "completed" | "current" | "locked";
 
-function PathNode({
+const SECTION_STYLES: Record<number, { header: string; badge: string; label: string }> = {
+  1: {
+    header: "border-success/30 bg-success/5",
+    badge: "bg-success/20 text-success",
+    label: "text-success",
+  },
+  2: {
+    header: "border-accent/30 bg-accent/5",
+    badge: "bg-accent/20 text-accent",
+    label: "text-accent",
+  },
+  3: {
+    header: "border-danger/30 bg-danger/5",
+    badge: "bg-danger/20 text-danger",
+    label: "text-danger",
+  },
+};
+
+function SectionHeader({ section }: { section: TaskSection }) {
+  const style = SECTION_STYLES[section.difficulty] ?? SECTION_STYLES[2];
+  const completedCount = section.nodes.filter((n) => n.state === "completed").length;
+
+  return (
+    <div className={cn("flex items-center gap-3 rounded-2xl border px-4 py-3 w-full", style.header)}>
+      <div
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold",
+          style.badge,
+        )}
+      >
+        {section.task_number}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={cn("text-sm font-semibold leading-tight", style.label)}>
+          Задание {section.task_number}
+        </p>
+        <p className="text-xs text-muted truncate">{section.title}</p>
+      </div>
+      <span className="text-xs text-muted tabular-nums shrink-0">
+        {completedCount}&thinsp;/&thinsp;{section.nodes.length}
+      </span>
+    </div>
+  );
+}
+
+function PathNodeItem({
   node,
   offset,
   onTap,
@@ -47,7 +92,6 @@ function PathNode({
         {isCurrent && (
           <span className="absolute inset-0 rounded-full bg-accent/30 animate-ping" />
         )}
-
         <div
           className={cn(
             "relative flex h-[72px] w-[72px] items-center justify-center rounded-full transition-transform duration-200",
@@ -118,8 +162,9 @@ export default function SessionPage() {
   const { data: path, isLoading } = useSessionPath();
   const [loadingNode, setLoadingNode] = useState<string | null>(null);
 
-  const nodes = path?.nodes ?? [];
-  const completedCount = nodes.filter((n) => n.state === "completed").length;
+  const sections = path?.sections ?? [];
+  const allNodes = sections.flatMap((s) => s.nodes);
+  const completedCount = allNodes.filter((n) => n.state === "completed").length;
 
   async function handleNodeTap(node: PathNode) {
     if (!tokens) return;
@@ -147,8 +192,8 @@ export default function SessionPage() {
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div>
-            <p className="text-xs text-muted">ЕГЭ · Математика (Профильная)</p>
-            <h1 className="text-xl font-bold">Задание 1 — Планиметрия</h1>
+            <p className="text-xs text-muted">ЕГЭ · Профильная математика</p>
+            <h1 className="text-xl font-bold">Задания 1–12</h1>
           </div>
         </div>
 
@@ -156,14 +201,14 @@ export default function SessionPage() {
         <div className="mb-10 flex items-center gap-4 text-sm text-muted">
           {isLoading ? (
             <span className="h-4 w-36 animate-pulse rounded bg-fg/10" />
-          ) : nodes.length > 0 ? (
+          ) : allNodes.length > 0 ? (
             <>
               <span>
                 <span className="font-semibold text-fg">{completedCount}</span>
                 {" / "}
-                <span className="font-semibold text-fg">{nodes.length}</span> тем
+                <span className="font-semibold text-fg">{allNodes.length}</span> подтем
               </span>
-              {completedCount === nodes.length && (
+              {completedCount === allNodes.length && (
                 <span className="text-success font-medium">Все темы пройдены ✓</span>
               )}
             </>
@@ -172,37 +217,49 @@ export default function SessionPage() {
           )}
         </div>
 
-        {/* Path */}
-        <div className="flex flex-col items-center">
+        {/* Path — one section at a time */}
+        <div className="flex flex-col gap-10">
           {isLoading
-            ? Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex flex-col items-center">
-                  <div className="h-[72px] w-[72px] rounded-full bg-fg/10 animate-pulse" />
-                  {i < 4 && <div className="my-1 h-16 w-0.5 bg-border/40" />}
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-4">
+                  <div className="h-16 rounded-2xl animate-pulse bg-fg/10" />
+                  {Array.from({ length: 3 }).map((_, j) => (
+                    <div key={j} className="flex flex-col items-center">
+                      <div className="h-[72px] w-[72px] rounded-full bg-fg/10 animate-pulse" />
+                      {j < 2 && <div className="my-1 h-16 w-0.5 bg-border/40" />}
+                    </div>
+                  ))}
                 </div>
               ))
-            : nodes.map((node, i) => {
-                const offset = ZIGZAG_OFFSETS[i % ZIGZAG_OFFSETS.length];
-                const nextOffset = ZIGZAG_OFFSETS[(i + 1) % ZIGZAG_OFFSETS.length];
-                const isLast = i === nodes.length - 1;
+            : sections.map((section) => (
+                <div key={section.task_number} className="flex flex-col items-center gap-0">
+                  <SectionHeader section={section} />
 
-                return (
-                  <div key={node.topic_id} className="flex flex-col items-center w-full">
-                    <PathNode
-                      node={node}
-                      offset={offset}
-                      onTap={handleNodeTap}
-                      loading={loadingNode === node.topic_id}
-                    />
-                    {!isLast && (
-                      <Connector fromOffset={offset} toOffset={nextOffset} />
-                    )}
+                  <div className="mt-6 flex flex-col items-center w-full">
+                    {section.nodes.map((node, i) => {
+                      const offset = ZIGZAG_OFFSETS[i % ZIGZAG_OFFSETS.length];
+                      const nextOffset = ZIGZAG_OFFSETS[(i + 1) % ZIGZAG_OFFSETS.length];
+                      const isLast = i === section.nodes.length - 1;
+                      return (
+                        <div key={node.topic_id} className="flex flex-col items-center w-full">
+                          <PathNodeItem
+                            node={node}
+                            offset={offset}
+                            onTap={handleNodeTap}
+                            loading={loadingNode === node.topic_id}
+                          />
+                          {!isLast && (
+                            <Connector fromOffset={offset} toOffset={nextOffset} />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
 
-          {!isLoading && nodes.length > 0 && (
-            <div className="mt-6 flex flex-col items-center gap-2 opacity-40">
+          {!isLoading && sections.length > 0 && (
+            <div className="flex flex-col items-center gap-2 opacity-40">
               <div className="flex gap-1">
                 {[0, 1, 2].map((i) => (
                   <Star key={i} className="h-5 w-5 text-accent" />

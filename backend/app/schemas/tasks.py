@@ -49,5 +49,12 @@ class PathNodeOut(BaseModel):
     correct_count: int
 
 
-class SessionPathOut(BaseModel):
+class TaskSection(BaseModel):
+    task_number: int
+    title: str
+    difficulty: int  # 1=easy/green  2=medium/yellow  3=hard/red
     nodes: list[PathNodeOut]
+
+
+class SessionPathOut(BaseModel):
+    sections: list[TaskSection]

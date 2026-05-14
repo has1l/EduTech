@@ -14,8 +14,9 @@ from app.models.streak import Streak
 from app.models.task import Task
 from app.models.theory import TheorySection
 from app.models.topic import Topic
-from app.schemas.tasks import AnswerResult, PathNodeOut, SessionPathOut, TaskOut, TodaySession
+from app.schemas.tasks import AnswerResult, PathNodeOut, SessionPathOut, TaskOut, TaskSection, TodaySession
 from app.services.bank_ege_client import (
+    TASK_SECTIONS,
     _EGE_SUBJECT_CODE,
     fetch_and_store_tasks,
     fetch_tasks_for_subtopic,
@@ -72,29 +73,32 @@ async def process_answer(
 
 
 async def get_session_path(user, db: AsyncSession) -> SessionPathOut:
-    """Returns the EGE task-1 subtopic path with user progress."""
+    """Returns EGE tasks 1–12 subtopic path grouped into sections with per-section unlocking."""
+    from collections import defaultdict
+
     from app.models.subject import Subject
 
     subj = await db.scalar(select(Subject).where(Subject.code == _EGE_SUBJECT_CODE))
     if subj is None:
-        return SessionPathOut(nodes=[])
+        return SessionPathOut(sections=[])
 
     topics_result = await db.scalars(
-        select(Topic)
-        .where(Topic.subject_id == subj.id, Topic.exam_task_number == 1)
+        select(Topic).where(
+            Topic.subject_id == subj.id,
+            Topic.exam_task_number.isnot(None),
+        )
     )
+
     def _topic_sort_key(t: Topic) -> tuple[int, int]:
         parts = t.code.split(".")
         return (int(parts[0]), int(parts[1])) if len(parts) == 2 else (0, 0)
 
-    topics = sorted(topics_result.all(), key=_topic_sort_key)
+    all_topics = sorted(topics_result.all(), key=_topic_sort_key)
+    if not all_topics:
+        return SessionPathOut(sections=[])
 
-    if not topics:
-        return SessionPathOut(nodes=[])
+    topic_ids = [t.id for t in all_topics]
 
-    topic_ids = [t.id for t in topics]
-
-    # Count attempts per topic for this user
     rows = await db.execute(
         select(Task.topic_id, func.count(Attempt.id), func.sum(Attempt.is_correct.cast(Integer)))
         .join(Attempt, Attempt.task_id == Task.id)
@@ -105,32 +109,48 @@ async def get_session_path(user, db: AsyncSession) -> SessionPathOut:
     for topic_id, total, correct in rows:
         stats[topic_id] = (int(total), int(correct or 0))
 
-    nodes: list[PathNodeOut] = []
-    found_current = False
+    by_task: dict[int, list[Topic]] = defaultdict(list)
+    for t in all_topics:
+        if t.exam_task_number is not None:
+            by_task[t.exam_task_number].append(t)
 
-    for topic in topics:
-        attempts_count, correct_count = stats.get(topic.id, (0, 0))
-        is_completed = correct_count >= 1
+    sections: list[TaskSection] = []
+    for task_num in sorted(by_task.keys()):
+        group = by_task[task_num]
+        meta = TASK_SECTIONS.get(task_num, {"title": f"Задание {task_num}", "difficulty": 2})
+        found_current = False
+        nodes: list[PathNodeOut] = []
 
-        if is_completed:
-            state = "completed"
-        elif not found_current:
-            state = "current"
-            found_current = True
-        else:
-            state = "locked"
+        for topic in group:
+            attempts_count, correct_count = stats.get(topic.id, (0, 0))
+            is_completed = correct_count >= 1
 
-        nodes.append(PathNodeOut(
-            topic_id=topic.id,
-            title=topic.title,
-            subtopic_number=topic.code,
-            task_number=topic.exam_task_number or 1,
-            state=state,
-            attempts_count=attempts_count,
-            correct_count=correct_count,
+            if is_completed:
+                state = "completed"
+            elif not found_current:
+                state = "current"
+                found_current = True
+            else:
+                state = "locked"
+
+            nodes.append(PathNodeOut(
+                topic_id=topic.id,
+                title=topic.title,
+                subtopic_number=topic.code,
+                task_number=task_num,
+                state=state,
+                attempts_count=attempts_count,
+                correct_count=correct_count,
+            ))
+
+        sections.append(TaskSection(
+            task_number=task_num,
+            title=meta["title"],
+            difficulty=meta["difficulty"],
+            nodes=nodes,
         ))
 
-    return SessionPathOut(nodes=nodes)
+    return SessionPathOut(sections=sections)
 
 
 async def get_random_tasks_for_topic(

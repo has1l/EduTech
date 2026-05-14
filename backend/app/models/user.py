@@ -15,5 +15,6 @@ class User(Base, UUIDPrimaryKey, Timestamped):
 
     name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     grade: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    current_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     target_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     exam_date: Mapped[date | None] = mapped_column(Date, nullable=True)

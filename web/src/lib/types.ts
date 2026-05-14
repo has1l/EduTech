@@ -3,6 +3,7 @@ export type User = {
   email: string;
   name: string | null;
   grade: number | null;
+  current_score: number | null;
   target_score: number | null;
   exam_date: string | null;
 };

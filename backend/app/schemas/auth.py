@@ -29,6 +29,7 @@ class UserPublic(BaseModel):
     email: str
     name: str | None
     grade: int | None
+    current_score: int | None
     target_score: int | None
     exam_date: date | None
 

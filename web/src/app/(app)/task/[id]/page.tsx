@@ -180,7 +180,8 @@ export default function TaskPage() {
           {task.question_image_url && (
             <img
               src={
-                task.question_image_url.startsWith("data:")
+                task.question_image_url.startsWith("data:") ||
+                task.question_image_url.startsWith("https://storage.yandexcloud.net")
                   ? task.question_image_url
                   : `${API_URL}/tasks/image-proxy?url=${encodeURIComponent(task.question_image_url)}`
               }

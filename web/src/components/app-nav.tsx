@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Flame } from "lucide-react";
-import { useMe, useStreak } from "@/lib/queries";
+import { useStreak } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -15,7 +15,6 @@ const TABS = [
 
 export function AppNav() {
   const pathname = usePathname();
-  const { data: me } = useMe();
   const { data: streak } = useStreak();
 
   return (

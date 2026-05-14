@@ -19,8 +19,8 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 const GRADES = [
-  { value: 9, label: "ОГЭ", subtitle: "9 класс" },
-  { value: 11, label: "ЕГЭ", subtitle: "11 класс" },
+  { value: 9, label: "ОГЭ" },
+  { value: 11, label: "ЕГЭ" },
 ] as const;
 
 const OGE_SCORES = [
@@ -132,9 +132,6 @@ export default function OnboardingPage() {
                   )}
                 >
                   <div className="text-lg font-semibold">{g.label}</div>
-                  <div className={cn("text-sm", active ? "text-bg/70" : "text-muted")}>
-                    {g.subtitle}
-                  </div>
                 </button>
               );
             })}

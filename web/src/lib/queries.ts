@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { useAuth } from "./auth";
-import type { SessionPath, Task, TodaySession, User } from "./types";
+import type { SessionPath, Streak, Task, TodaySession, User } from "./types";
 
 const ME_KEY = ["users", "me"] as const;
 
@@ -74,6 +74,18 @@ export function useUpdateProfile() {
     onSuccess: (user) => {
       useAuth.getState().setUser(user);
       qc.setQueryData(ME_KEY, user);
+    },
+  });
+}
+
+export function useStreak() {
+  const tokens = useAuth((s) => s.tokens);
+  return useQuery({
+    queryKey: ["streak"],
+    enabled: !!tokens,
+    queryFn: async () => {
+      const { data } = await api.get<Streak>("/streak");
+      return data;
     },
   });
 }

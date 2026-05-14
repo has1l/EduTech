@@ -71,6 +71,13 @@ export type SubtopicSession = {
   tasks: Task[];
 };
 
+export type Streak = {
+  current_streak: number;
+  longest_streak: number;
+  last_session_date: string | null;
+  freezes_available: number;
+};
+
 export type DiagnosticSession = {
   session_id: string;
   tasks: Task[];

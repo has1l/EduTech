@@ -1,29 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Flame } from "lucide-react";
-import { useAuth } from "@/lib/auth";
-import { useMe } from "@/lib/queries";
-import { Button } from "@/components/ui/button";
+import { useMe, useStreak } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/today", label: "Курсы" },
   { href: "/progress", label: "Прогресс" },
   { href: "/theory", label: "Теория" },
+  { href: "/profile", label: "Профиль" },
 ] as const;
 
 export function AppNav() {
   const pathname = usePathname();
-  const router = useRouter();
-  const clear = useAuth((s) => s.clear);
   const { data: me } = useMe();
-
-  const logout = () => {
-    clear();
-    router.replace("/login");
-  };
+  const { data: streak } = useStreak();
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-bg/80 backdrop-blur">
@@ -52,15 +45,10 @@ export function AppNav() {
           })}
         </nav>
         <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-1 rounded-full bg-accent/20 px-3 py-1 text-sm font-semibold sm:flex">
-            <Flame className="h-4 w-4" /> 0
+          <div className="flex items-center gap-1 rounded-full bg-accent/20 px-3 py-1 text-sm font-semibold">
+            <Flame className="h-4 w-4" />
+            {streak?.current_streak ?? 0}
           </div>
-          <span className="hidden text-sm text-muted sm:block">
-            {me?.name ?? me?.email ?? "..."}
-          </span>
-          <Button variant="ghost" size="sm" onClick={logout}>
-            Выйти
-          </Button>
         </div>
       </div>
     </header>

@@ -301,7 +301,6 @@ async def fetch_and_store_ege_variant(db) -> list[Task]:
     Picks a random EGE variant with full task 1–12 coverage,
     imports tasks to DB, returns Task list ordered by task number.
     """
-    from sqlalchemy.ext.asyncio import AsyncSession as _AS
     variant_uuid = random.choice(_DIAGNOSTIC_VARIANT_UUIDS)
 
     async with httpx.AsyncClient(headers=_HEADERS, timeout=20) as client:
@@ -361,11 +360,11 @@ async def fetch_and_store_ege_variant(db) -> list[Task]:
             continue
 
         bank_topic_id = (raw.get("exam_topic") or {}).get("id")
-        topic = topic_by_bank_id.get(bank_topic_id) if bank_topic_id else None
+        topic = topic_by_bank_id.get(int(bank_topic_id)) if bank_topic_id else None
         if topic is None:
             for st in ALL_EGE_SUBTOPICS:
                 if st["exam_task_number"] == task_num:
-                    topic = topic_by_bank_id.get(st["bank_ege_topic_id"])
+                    topic = topic_by_bank_id.get(int(st["bank_ege_topic_id"]))
                     if topic:
                         break
         if topic is None:

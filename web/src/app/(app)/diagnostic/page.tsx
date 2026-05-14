@@ -5,13 +5,19 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, SkipForward, Loader2 } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { Button } from "@/components/ui/button";
+import { MathText } from "@/components/math-text";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import type { DiagnosticResult, DiagnosticSession, Task } from "@/lib/types";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+
 function TaskImage({ url }: { url: string }) {
-  const src = url.startsWith("data:") ? url : `/api/v1/tasks/image-proxy?url=${encodeURIComponent(url)}`;
+  const src =
+    url.startsWith("data:") || url.startsWith("https://storage.yandexcloud.net")
+      ? url
+      : `${API_URL}/tasks/image-proxy?url=${encodeURIComponent(url)}`;
   return (
     <img
       src={src}
@@ -142,7 +148,7 @@ export default function DiagnosticPage() {
         <div className="rounded-2xl border border-border bg-card p-5 space-y-4 min-h-[200px]">
           {task.question_image_url && <TaskImage url={task.question_image_url} />}
           {showText && (
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{task.question_text}</p>
+            <MathText text={task.question_text} className="text-sm leading-relaxed whitespace-pre-wrap" />
           )}
         </div>
 

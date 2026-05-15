@@ -196,24 +196,35 @@ export default function BoosterPage() {
         {loaded && items.length > 0 && (
           <div className="flex flex-1 overflow-hidden">
 
-            {/* Left sidebar — task list */}
-            <aside className="w-64 shrink-0 overflow-y-auto border-r border-border">
+            {/* Left — task content */}
+            <main className="flex-1 overflow-y-auto">
+              {selectedItem ? (
+                <TaskPanel item={selectedItem} onRemove={() => remove(selectedItem.taskId)} />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted text-sm">
+                  Выбери задание справа
+                </div>
+              )}
+            </main>
+
+            {/* Right sidebar — task list */}
+            <aside className="w-56 shrink-0 overflow-y-auto border-l border-border bg-bg">
               {grouped.map((taskGroup) => {
                 const colors = SECTION_COLORS[taskGroup.difficulty] ?? SECTION_COLORS[2];
                 return (
                   <div key={taskGroup.taskNumber}>
                     {/* Task section header */}
-                    <div className={cn("flex items-center gap-2 px-3 py-2 sticky top-0 border-b border-border/50", colors.header)}>
-                      <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold", colors.badge)}>
+                    <div className={cn("flex items-center gap-2 px-3 py-2 sticky top-0 z-10 border-b border-border/50", colors.header)}>
+                      <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold shrink-0", colors.badge)}>
                         {taskGroup.taskNumber || "?"}
                       </span>
-                      <span className="text-xs font-semibold">Задание {taskGroup.taskNumber}</span>
+                      <span className="text-xs font-semibold truncate">Задание {taskGroup.taskNumber}</span>
                     </div>
 
                     {/* Subtopics */}
                     {Array.from(taskGroup.subtopics.entries()).map(([topicId, subGroup]) => (
                       <div key={topicId}>
-                        <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-muted uppercase tracking-wide">
+                        <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-muted uppercase tracking-wide leading-tight">
                           {subGroup.subtopicNumber} · {subGroup.subtopicTitle}
                         </p>
                         {subGroup.items.map((item, idx) => {
@@ -222,7 +233,6 @@ export default function BoosterPage() {
                             <button
                               key={item.taskId}
                               onClick={() => {
-                                // mobile: navigate directly; desktop: show in panel
                                 if (window.innerWidth < 768) {
                                   router.push(`/task/${item.taskId}?booster=1`);
                                 } else {
@@ -230,18 +240,18 @@ export default function BoosterPage() {
                                 }
                               }}
                               className={cn(
-                                "w-full flex items-center gap-2 px-3 py-2.5 text-left transition border-b border-border/30 last:border-0",
+                                "w-full flex items-center gap-2 px-3 py-2 text-left transition border-b border-border/20 last:border-0",
                                 isSelected ? "bg-fg/8" : "hover:bg-fg/5",
                               )}
                             >
-                              <span className="text-xs text-muted w-4 shrink-0">{idx + 1}</span>
+                              <span className="text-xs text-muted/60 w-4 shrink-0">{idx + 1}</span>
                               {item.reason === "skipped" ? (
                                 <span className="flex items-center gap-1 text-xs text-danger">
-                                  <SkipForward className="h-3 w-3" /> Пропущено
+                                  <SkipForward className="h-3 w-3 shrink-0" /> Пропущено
                                 </span>
                               ) : (
                                 <span className="flex items-center gap-1 text-xs text-accent">
-                                  <Sparkles className="h-3 w-3" /> С AI
+                                  <Sparkles className="h-3 w-3 shrink-0" /> С AI
                                 </span>
                               )}
                             </button>
@@ -253,17 +263,6 @@ export default function BoosterPage() {
                 );
               })}
             </aside>
-
-            {/* Right panel — task content */}
-            <main className="flex-1 overflow-y-auto">
-              {selectedItem ? (
-                <TaskPanel item={selectedItem} onRemove={() => remove(selectedItem.taskId)} />
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted text-sm">
-                  Выбери задание слева
-                </div>
-              )}
-            </main>
 
           </div>
         )}

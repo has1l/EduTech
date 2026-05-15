@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Flame, Snowflake, Trophy, LogOut } from "lucide-react";
+import { Flame, Snowflake, Trophy, LogOut, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -172,6 +173,35 @@ export default function ProfilePage() {
           <div className="text-xs text-muted">Заморозки</div>
         </div>
       </div>
+
+      {/* Current level */}
+      {me.current_score != null ? (
+        <div className="mb-8 rounded-2xl border border-border px-5 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-muted mb-0.5">Текущий уровень по диагностике</p>
+            <p className="text-2xl font-black">
+              {isOge ? `Оценка ${me.current_score}` : `${me.current_score} баллов`}
+            </p>
+          </div>
+          <Link
+            href="/diagnostic"
+            className="text-xs text-muted hover:text-accent transition underline underline-offset-2"
+          >
+            Пройти заново
+          </Link>
+        </div>
+      ) : (
+        <Link
+          href="/diagnostic"
+          className="mb-8 flex items-center gap-3 rounded-2xl border border-dashed border-border px-5 py-4 hover:border-accent hover:bg-accent/5 transition"
+        >
+          <ClipboardList className="h-5 w-5 shrink-0 text-accent" />
+          <div>
+            <p className="text-sm font-medium">Диагностика не пройдена</p>
+            <p className="text-xs text-muted">Пройди тест — мы определим твой уровень</p>
+          </div>
+        </Link>
+      )}
 
       {/* Exam settings */}
       <form onSubmit={onSubmit} className="flex flex-col gap-6">

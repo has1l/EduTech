@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, SkipForward, Sparkles, Zap } from "lucide-react";
+import { BookOpen, ChevronLeft, SkipForward, Sparkles, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { MathText } from "@/components/math-text";
+import { Button } from "@/components/ui/button";
 import { useSessionPath, useTask } from "@/lib/queries";
+import { useAuth } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { getBooster, removeFromBooster, type BoosterItem } from "@/lib/booster";
 import { cn } from "@/lib/utils";
+import type { AnswerResult } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -18,10 +22,121 @@ const SECTION_COLORS: Record<number, { header: string; badge: string }> = {
   3: { header: "border-danger/20 bg-danger/5",   badge: "bg-danger/20 text-danger" },
 };
 
-// Right panel: shows selected task
-function TaskPanel({ item, onRemove }: { item: BoosterItem; onRemove: () => void }) {
-  const router = useRouter();
+type Phase = "question" | "submitting" | "correct" | "wrong" | "dialogue" | "giveup";
+type Message = { role: "user" | "assistant"; content: string };
+type TheoryRef = { title: string; section_id: string };
+
+function InlineTaskSolver({
+  item,
+  onSolved,
+}: {
+  item: BoosterItem;
+  onSolved: () => void;
+}) {
   const { data: task, isLoading } = useTask(item.taskId);
+  const tokens = useAuth((s) => s.tokens);
+
+  const [phase, setPhase] = useState<Phase>("question");
+  const [answer, setAnswer] = useState("");
+  const [wrongAnswer, setWrongAnswer] = useState("");
+  const [dialogueId, setDialogueId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [theoryRef, setTheoryRef] = useState<TheoryRef | null>(null);
+  const [giveUpResult, setGiveUpResult] = useState<{ correct_answer: string } | null>(null);
+  const [streaming, setStreaming] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
+  const [reply, setReply] = useState("");
+  const streamBuffer = useRef("");
+
+  async function startStream(dId: string) {
+    if (!tokens) return;
+    setStreaming(true);
+    streamBuffer.current = "";
+    setStreamingText("");
+    try {
+      const res = await fetch(`${API_URL}/dialogue/${dId}/stream`, {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      if (!res.ok) { setStreaming(false); return; }
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split(/\r\n\r\n|\n\n/);
+        buf = parts.pop() ?? "";
+        for (const block of parts) {
+          const evName = block.match(/^event: (.+)$/m)?.[1]?.trim();
+          const dataStr = block.match(/^data: (.*)$/m)?.[1]?.trim() ?? "";
+          if (evName === "token") {
+            streamBuffer.current += JSON.parse(dataStr) as string;
+            setStreamingText(streamBuffer.current);
+          } else if (evName === "meta") {
+            const meta = JSON.parse(dataStr) as { theory_ref: TheoryRef | null };
+            if (meta.theory_ref) setTheoryRef(meta.theory_ref);
+          } else if (evName === "done") {
+            const finalText = streamBuffer.current;
+            streamBuffer.current = "";
+            setStreamingText("");
+            setMessages((prev) => [...prev, { role: "assistant", content: finalText }]);
+            setStreaming(false);
+          } else if (evName === "error") {
+            setStreaming(false);
+          }
+        }
+      }
+    } catch {
+      setStreaming(false);
+    }
+  }
+
+  async function submitAnswer() {
+    if (!answer.trim() || !task) return;
+    setPhase("submitting");
+    try {
+      const { data } = await api.post<AnswerResult>(`/tasks/${task.id}/answer`, { answer: answer.trim() });
+      if (data.correct) {
+        setPhase("correct");
+        removeFromBooster(item.taskId);
+      } else if (data.dialogue_id) {
+        setDialogueId(data.dialogue_id);
+        setPhase("wrong");
+        setWrongAnswer(answer.trim());
+      } else {
+        setPhase("question");
+      }
+    } catch {
+      setPhase("question");
+    }
+  }
+
+  function startDialogue() {
+    if (!dialogueId) return;
+    setPhase("dialogue");
+    startStream(dialogueId);
+  }
+
+  async function sendReply() {
+    if (!reply.trim() || !dialogueId || streaming) return;
+    const text = reply.trim();
+    setReply("");
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    await api.post(`/dialogue/${dialogueId}/reply`, { text });
+    await startStream(dialogueId);
+  }
+
+  async function giveUp() {
+    if (!dialogueId) return;
+    const { data } = await api.post<{ correct_answer: string }>(`/dialogue/${dialogueId}/give-up`);
+    setGiveUpResult(data);
+    setPhase("giveup");
+    await startStream(dialogueId);
+  }
+
+  const assistantTurns = messages.filter((m) => m.role === "assistant").length;
+  const canGoNext = !streaming && (phase === "correct" || phase === "giveup" || (phase === "dialogue" && assistantTurns >= 3));
 
   if (isLoading || !task) {
     return (
@@ -33,9 +148,9 @@ function TaskPanel({ item, onRemove }: { item: BoosterItem; onRemove: () => void
   }
 
   return (
-    <div className="flex flex-col gap-5 p-6">
+    <div className="flex flex-col gap-4 p-6">
       {/* Reason badge */}
-      <div className="flex items-center gap-2">
+      <div>
         {item.reason === "skipped" ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-danger/10 px-3 py-1 text-sm font-medium text-danger">
             <SkipForward className="h-3.5 w-3.5" /> Пропущено
@@ -71,20 +186,141 @@ function TaskPanel({ item, onRemove }: { item: BoosterItem; onRemove: () => void
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => router.push(`/task/${item.taskId}?booster=1`)}
-          className="flex-1 rounded-xl bg-fg text-bg py-3 text-sm font-semibold hover:opacity-90 transition"
-        >
-          Разобрать →
-        </button>
-        <button
-          onClick={onRemove}
-          className="rounded-xl border border-border px-4 py-3 text-sm text-muted hover:bg-fg/5 transition"
-        >
-          Удалить
-        </button>
+      {/* Answer input */}
+      {(phase === "question" || phase === "submitting" || phase === "wrong") && (
+        <div className="space-y-2">
+          {phase === "wrong" && answer === wrongAnswer && (
+            <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
+              Ответ <span className="font-semibold">{wrongAnswer}</span> — неверно. Попробуй ещё раз.
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitAnswer()}
+              placeholder="Введи ответ..."
+              disabled={phase === "submitting"}
+              className="flex-1 rounded-2xl border border-border bg-transparent px-4 py-3 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+            />
+            <Button size="lg" onClick={submitAnswer} disabled={!answer.trim() || phase === "submitting"} className="shrink-0">
+              {phase === "submitting" ? "..." : "Проверить"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* AI tutor section */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/20 shrink-0">
+            <Sparkles className="h-4 w-4 text-accent" />
+          </div>
+          <span className="text-sm font-semibold">AI-репетитор</span>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {(phase === "question" || phase === "submitting") && (
+            <p className="text-sm text-muted leading-relaxed">
+              Попробуй решить задачу самостоятельно. Если ошибёшься — разберём вместе.
+            </p>
+          )}
+
+          {phase === "wrong" && (
+            <>
+              <p className="text-sm text-muted leading-relaxed">
+                Можем разобрать вместе — я задам наводящие вопросы.
+              </p>
+              <button
+                onClick={startDialogue}
+                className="rounded-full bg-fg text-bg px-4 py-2 text-sm font-semibold hover:opacity-90 transition"
+              >
+                Помоги разобрать
+              </button>
+            </>
+          )}
+
+          {phase === "correct" && (
+            <>
+              <p className="text-sm font-medium text-success">Правильно! Задание убрано из бустера.</p>
+              <button
+                onClick={onSolved}
+                className="rounded-full bg-fg text-bg px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition"
+              >
+                Следующее →
+              </button>
+            </>
+          )}
+
+          {(phase === "dialogue" || phase === "giveup") && (
+            <>
+              {phase === "giveup" && giveUpResult && (
+                <div className="rounded-xl border border-success/30 bg-success/10 px-3 py-2.5 text-sm">
+                  Правильный ответ:{" "}
+                  <span className="font-semibold text-success">{giveUpResult.correct_answer}</span>
+                </div>
+              )}
+
+              {messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "rounded-xl px-4 py-3 text-sm leading-relaxed",
+                    msg.role === "assistant" ? "bg-accent/10 border border-accent/15" : "bg-fg/5 ml-8",
+                  )}
+                >
+                  <MathText text={msg.content} />
+                </div>
+              ))}
+
+              {streaming && (
+                <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-accent/10 border border-accent/15">
+                  {streamingText ? (
+                    <><MathText text={streamingText} /><span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-fg/60" /></>
+                  ) : (
+                    <span className="text-muted">AI думает...</span>
+                  )}
+                </div>
+              )}
+
+              {theoryRef && (
+                <div className="flex items-center gap-2 rounded-xl border border-border px-3 py-2.5 text-sm">
+                  <BookOpen className="h-4 w-4 shrink-0 text-muted" />
+                  <span className="text-muted">Теория:</span>
+                  <span className="font-medium">{theoryRef.title}</span>
+                </div>
+              )}
+
+              {!streaming && messages.length > 0 && (
+                <div className="flex gap-2">
+                  <input
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendReply()}
+                    placeholder="Напиши ответ..."
+                    className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  />
+                  <Button onClick={sendReply} disabled={!reply.trim()}>→</Button>
+                </div>
+              )}
+
+              {!streaming && (
+                <div className="flex flex-wrap gap-2">
+                  {phase === "dialogue" && (
+                    <button onClick={giveUp} className="rounded-full border border-border px-4 py-2 text-sm text-muted hover:bg-fg/5 transition">
+                      Объяснить сразу
+                    </button>
+                  )}
+                  {canGoNext && (
+                    <button onClick={onSolved} className="rounded-full bg-fg text-bg px-5 py-2 text-sm font-semibold hover:opacity-90 transition">
+                      Следующее →
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -113,7 +349,17 @@ export default function BoosterPage() {
     });
   }
 
-  // topic_id → { taskNumber, difficulty, subtopicNumber, subtopicTitle }
+  function handleSolved() {
+    const idx = items.findIndex((i) => i.taskId === selectedId);
+    removeFromBooster(selectedId!);
+    setItems((prev) => {
+      const next = prev.filter((i) => i.taskId !== selectedId);
+      const nextItem = next[idx] ?? next[idx - 1] ?? next[0] ?? null;
+      setSelectedId(nextItem?.taskId ?? null);
+      return next;
+    });
+  }
+
   const topicMeta = useMemo(() => {
     const map = new Map<string, { taskNumber: number; difficulty: number; subtopicNumber: string; subtopicTitle: string }>();
     path?.sections.forEach((section) => {
@@ -129,12 +375,10 @@ export default function BoosterPage() {
     return map;
   }, [path]);
 
-  // Group: taskNumber → subtopicId → items[]
   const grouped = useMemo(() => {
     type SubGroup = { subtopicNumber: string; subtopicTitle: string; items: BoosterItem[] };
     type TaskGroup = { taskNumber: number; difficulty: number; subtopics: Map<string, SubGroup> };
     const byTask = new Map<number, TaskGroup>();
-
     items.forEach((item) => {
       const meta = topicMeta.get(item.topicId);
       const taskNum = meta?.taskNumber ?? 0;
@@ -151,7 +395,6 @@ export default function BoosterPage() {
       }
       taskGroup.subtopics.get(item.topicId)!.items.push(item);
     });
-
     return Array.from(byTask.values()).sort((a, b) => a.taskNumber - b.taskNumber);
   }, [items, topicMeta]);
 
@@ -196,10 +439,10 @@ export default function BoosterPage() {
         {loaded && items.length > 0 && (
           <div className="flex flex-1 overflow-hidden">
 
-            {/* Left — task content */}
+            {/* Left — inline task solver */}
             <main className="flex-1 overflow-y-auto">
               {selectedItem ? (
-                <TaskPanel item={selectedItem} onRemove={() => remove(selectedItem.taskId)} />
+                <InlineTaskSolver key={selectedItem.taskId} item={selectedItem} onSolved={handleSolved} />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted text-sm">
                   Выбери задание справа
@@ -213,7 +456,6 @@ export default function BoosterPage() {
                 const colors = SECTION_COLORS[taskGroup.difficulty] ?? SECTION_COLORS[2];
                 return (
                   <div key={taskGroup.taskNumber}>
-                    {/* Task section header */}
                     <div className={cn("flex items-center gap-2 px-3 py-2 sticky top-0 z-10 border-b border-border/50", colors.header)}>
                       <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold shrink-0", colors.badge)}>
                         {taskGroup.taskNumber || "?"}
@@ -221,7 +463,6 @@ export default function BoosterPage() {
                       <span className="text-xs font-semibold truncate">Задание {taskGroup.taskNumber}</span>
                     </div>
 
-                    {/* Subtopics */}
                     {Array.from(taskGroup.subtopics.entries()).map(([topicId, subGroup]) => (
                       <div key={topicId}>
                         <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-muted uppercase tracking-wide leading-tight">

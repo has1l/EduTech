@@ -590,7 +590,7 @@ export default function TaskPage() {
                   msg.role === "assistant" ? (
                     <div key={i} className="flex items-start gap-2">
                       <video
-                        src="/mascot/idle.mp4"
+                        src="/mascot/thinking.mp4"
                         autoPlay
                         loop
                         muted

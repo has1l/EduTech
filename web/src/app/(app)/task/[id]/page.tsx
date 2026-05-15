@@ -503,8 +503,7 @@ export default function TaskPage() {
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
             <video
-              key={streaming && !streamingText ? "thinking" : "idle"}
-              src={streaming && !streamingText ? "/mascot/thinking.mp4" : "/mascot/idle.mp4"}
+              src="/mascot/idle.mp4"
               autoPlay
               loop
               muted
@@ -613,7 +612,8 @@ export default function TaskPage() {
                 {streaming && (
                   <div className="flex items-start gap-2">
                     <video
-                      src={streamingText ? "/mascot/idle.mp4" : "/mascot/thinking.mp4"}
+                      key={streamingText ? "writing" : "investigating"}
+                      src={streamingText ? "/mascot/thinking.mp4" : "/mascot/investigating.mp4"}
                       autoPlay
                       loop
                       muted

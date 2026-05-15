@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { useAuth } from "./auth";
-import type { PlanOut, SessionPath, Streak, Task, TodaySession, User } from "./types";
+import type { BoosterItem, KBStats, PlanOut, SessionPath, Streak, Task, TodaySession, User } from "./types";
 
 const ME_KEY = ["users", "me"] as const;
 
@@ -111,6 +111,110 @@ export function useGeneratePlan() {
     },
     onSuccess: (data) => {
       qc.setQueryData(["plan"], data);
+    },
+  });
+}
+
+// ─── Booster ─────────────────────────────────────────────────────────────────
+
+const BOOSTER_KEY = ["booster"] as const;
+
+export function useBooster() {
+  const tokens = useAuth((s) => s.tokens);
+  return useQuery({
+    queryKey: BOOSTER_KEY,
+    enabled: !!tokens,
+    queryFn: async () => {
+      const { data } = await api.get<BoosterItem[]>("/booster");
+      return data;
+    },
+  });
+}
+
+export function useBoosterCount() {
+  const tokens = useAuth((s) => s.tokens);
+  return useQuery({
+    queryKey: [...BOOSTER_KEY, "count"],
+    enabled: !!tokens,
+    queryFn: async () => {
+      const { data } = await api.get<{ count: number }>("/booster/count");
+      return data.count;
+    },
+  });
+}
+
+export function useAddToBooster() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (item: { task_id: string; topic_id?: string; reason: string; question_preview: string }) => {
+      await api.post<BoosterItem>("/booster", item);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: BOOSTER_KEY });
+    },
+  });
+}
+
+export function useRemoveFromBooster() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      await api.delete(`/booster/${taskId}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: BOOSTER_KEY });
+    },
+  });
+}
+
+export function useUpdateBoosterReason() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ taskId, reason }: { taskId: string; reason: string }) => {
+      await api.patch(`/booster/${taskId}/reason`, { reason });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: BOOSTER_KEY });
+    },
+  });
+}
+
+// ─── Knowledge Base ───────────────────────────────────────────────────────────
+
+const KB_KEY = ["kb"] as const;
+
+export function useKBStats() {
+  const tokens = useAuth((s) => s.tokens);
+  return useQuery({
+    queryKey: KB_KEY,
+    enabled: !!tokens,
+    queryFn: async () => {
+      const { data } = await api.get<KBStats>("/kb/stats");
+      return data;
+    },
+  });
+}
+
+export function useAddToKB() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (item: { task_id: string; topic_id?: string }) => {
+      await api.post("/kb", item);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KB_KEY });
+    },
+  });
+}
+
+export function useClearKB() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await api.post("/kb/clear", {});
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KB_KEY });
     },
   });
 }

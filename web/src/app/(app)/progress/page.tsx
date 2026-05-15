@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { BookOpen, Brain, Flame, RotateCcw, TrendingUp, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
-import { useMe, useSessionPath, useStreak } from "@/lib/queries";
-import { getKBCount, getKBLevel, clearKB } from "@/lib/knowledge-base";
+import { useMe, useSessionPath, useStreak, useKBStats, useClearKB } from "@/lib/queries";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -89,45 +88,32 @@ function ScoreCard() {
 
 function KnowledgeBaseCard() {
   const { data: path } = useSessionPath();
-  const [count, setCount] = useState(0);
-  const [level, setLevel] = useState({ name: "Новичок", emoji: "🌱", nextAt: 10, count: 0 });
-  const [resetting, setResetting] = useState(false);
+  const { data: kb } = useKBStats();
+  const clearKBMutation = useClearKB();
   const [resetDone, setResetDone] = useState(false);
 
-  useEffect(() => {
-    setCount(getKBCount());
-    setLevel(getKBLevel());
-  }, []);
-
+  const count = kb?.count ?? 0;
   const allNodes = (path?.sections ?? []).flatMap((s) => s.nodes);
   const allCompleted = allNodes.length > 0 && allNodes.every((n) => n.correct_count >= 5);
 
-  const levelPct = level.nextAt === Infinity
-    ? 100
-    : Math.round(((count - getLevelMin(level.name)) / (level.nextAt - getLevelMin(level.name))) * 100);
-
   async function handleReset() {
     if (!allCompleted) return;
-    setResetting(true);
     setResetDone(false);
     try {
       await api.post("/sessions/reset-path", {});
     } catch { /* ignore */ }
-    clearKB();
-    setCount(0);
-    setLevel(getKBLevel());
-    setResetDone(true);
-    setResetting(false);
+    clearKBMutation.mutate(undefined, {
+      onSuccess: () => setResetDone(true),
+    });
   }
 
   return (
     <section className="rounded-3xl border border-border overflow-hidden">
-      {/* Top gradient header */}
       <div className="bg-gradient-to-br from-accent/20 to-accent/5 px-5 pt-5 pb-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/20 text-2xl">
-              {level.emoji}
+              {kb?.level_emoji ?? "🌱"}
             </div>
             <div>
               <p className="text-xs text-muted font-medium uppercase tracking-wide">База знаний</p>
@@ -136,42 +122,37 @@ function KnowledgeBaseCard() {
             </div>
           </div>
           <span className="rounded-full bg-accent/20 px-3 py-1 text-xs font-semibold text-accent">
-            {level.name}
+            {kb?.level_name ?? "Новичок"}
           </span>
         </div>
 
-        {/* Level progress */}
-        {level.nextAt !== Infinity && (
+        {kb?.next_at != null && (
           <div className="mt-4">
             <div className="flex justify-between text-xs text-muted mb-1">
-              <span>{level.name}</span>
-              <span>{count} / {level.nextAt} до следующего уровня</span>
+              <span>{kb.level_name}</span>
+              <span>{count} / {kb.next_at} до следующего уровня</span>
             </div>
             <div className="h-1.5 rounded-full bg-accent/20 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-accent transition-all duration-700"
-                style={{ width: `${levelPct}%` }}
-              />
+              <div className="h-full rounded-full bg-accent transition-all duration-700" style={{ width: `${kb.level_pct}%` }} />
             </div>
           </div>
         )}
-        {level.nextAt === Infinity && (
+        {kb?.next_at == null && count > 0 && (
           <p className="mt-3 text-xs text-accent font-medium">🏆 Максимальный уровень достигнут!</p>
         )}
       </div>
 
-      {/* Bottom actions */}
       <div className="px-5 py-4 space-y-2">
         <p className="text-xs text-muted leading-relaxed">
           Здесь собраны все задачи, которые ты решил самостоятельно. Повторяй их, чтобы не забыть.
         </p>
         <button
           onClick={handleReset}
-          disabled={!allCompleted || resetting}
+          disabled={!allCompleted || clearKBMutation.isPending}
           className="w-full flex items-center justify-center gap-2 rounded-2xl bg-fg text-bg py-3 text-sm font-semibold hover:opacity-90 transition disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <RotateCcw className={cn("h-4 w-4", resetting && "animate-spin")} />
-          {resetting ? "Сброс..." : "Повторение — мать учения"}
+          <RotateCcw className={cn("h-4 w-4", clearKBMutation.isPending && "animate-spin")} />
+          {clearKBMutation.isPending ? "Сброс..." : "Повторение — мать учения"}
         </button>
         {resetDone && (
           <p className="text-[11px] text-success text-center font-medium">

@@ -2,8 +2,10 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     auth,
+    booster,
     diagnostic,
     dialogue,
+    kb,
     plan,
     progress,
     sessions,
@@ -25,3 +27,5 @@ api_router.include_router(progress.router, prefix="/progress", tags=["progress"]
 api_router.include_router(theory.router, prefix="/theory", tags=["theory"])
 api_router.include_router(streak.router, prefix="/streak", tags=["streak"])
 api_router.include_router(plan.router, prefix="/plan", tags=["plan"])
+api_router.include_router(booster.router, prefix="/booster", tags=["booster"])
+api_router.include_router(kb.router, prefix="/kb", tags=["kb"])

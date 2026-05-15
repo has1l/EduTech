@@ -8,11 +8,9 @@ import { MathText } from "@/components/math-text";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { useTask } from "@/lib/queries";
+import { useTask, useAddToBooster, useRemoveFromBooster, useAddToKB } from "@/lib/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { addToBooster, removeFromBooster } from "@/lib/booster";
-import { addToKB } from "@/lib/knowledge-base";
 import type { AnswerResult, SubtopicSession } from "@/lib/types";
 
 const THRESHOLD = 5;
@@ -98,6 +96,9 @@ export default function TaskPage() {
   const tokens = useAuth((s) => s.tokens);
   const queryClient = useQueryClient();
   const { data: task, isLoading } = useTask(id);
+  const addToBoosterMutation = useAddToBooster();
+  const removeFromBoosterMutation = useRemoveFromBooster();
+  const addToKBMutation = useAddToKB();
 
   // Session navigation params
   const queueParam = searchParams.get("queue") ?? "";
@@ -345,7 +346,7 @@ export default function TaskPage() {
         if (!solvedPositions.has(pos)) {
           const reason = aiPositions.has(pos) ? "ai" : "skipped";
           const preview = taskId === id ? (task.question_text?.slice(0, 100) ?? "") : "";
-          addToBooster({ taskId, topicId: task.topic_id, reason, questionPreview: preview });
+          addToBoosterMutation.mutate({ task_id: taskId, topic_id: task.topic_id, reason, question_preview: preview });
         }
       });
     }
@@ -447,8 +448,8 @@ export default function TaskPage() {
           ? solvedPositions.size
           : solvedPositions.size + 1;
         setSolvedPositions((prev) => new Set([...Array.from(prev), currentPos]));
-        removeFromBooster(id);
-        addToKB(id, task.topic_id);
+        removeFromBoosterMutation.mutate(id);
+        addToKBMutation.mutate({ task_id: id, topic_id: task.topic_id });
         if (newSolvedSize === THRESHOLD) {
           api.post<{ current_streak: number }>("/streak/record", {}).then(({ data: s }) => {
             queryClient.invalidateQueries({ queryKey: ["streak"] });

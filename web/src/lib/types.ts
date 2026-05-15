@@ -99,6 +99,23 @@ export type DiagnosticResult = {
   sections: DiagnosticSectionResult[];
 };
 
+export type BoosterItem = {
+  task_id: string;
+  topic_id: string | null;
+  reason: "skipped" | "ai";
+  question_preview: string;
+  added_at: string;
+};
+
+export type KBStats = {
+  count: number;
+  level_name: string;
+  level_emoji: string;
+  next_at: number | null;
+  level_min: number;
+  level_pct: number;
+};
+
 export type PlanGroup = {
   task_number: number;
   title: string;

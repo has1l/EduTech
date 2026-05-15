@@ -1,19 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpen, ChevronLeft, SkipForward, Sparkles, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { MathText } from "@/components/math-text";
 import { Button } from "@/components/ui/button";
-import { useSessionPath, useTask } from "@/lib/queries";
+import { useSessionPath, useTask, useBooster, useRemoveFromBooster, useUpdateBoosterReason, useAddToKB } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { getBooster, removeFromBooster, updateBoosterReason, type BoosterItem } from "@/lib/booster";
-import { addToKB } from "@/lib/knowledge-base";
 import { cn } from "@/lib/utils";
-import type { AnswerResult } from "@/lib/types";
+import type { AnswerResult, BoosterItem } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -36,8 +34,11 @@ function InlineTaskSolver({
   onSolved: () => void;
   onNext: () => void;
 }) {
-  const { data: task, isLoading } = useTask(item.taskId);
+  const { data: task, isLoading } = useTask(item.task_id);
   const tokens = useAuth((s) => s.tokens);
+  const removeFromBooster = useRemoveFromBooster();
+  const updateBoosterReason = useUpdateBoosterReason();
+  const addToKB = useAddToKB();
 
   const [phase, setPhase] = useState<Phase>("question");
   const [answer, setAnswer] = useState("");
@@ -102,8 +103,8 @@ function InlineTaskSolver({
       const { data } = await api.post<AnswerResult>(`/tasks/${task.id}/answer`, { answer: answer.trim() });
       if (data.correct) {
         setPhase("correct");
-        removeFromBooster(item.taskId);
-        addToKB(item.taskId, item.topicId);
+        removeFromBooster.mutate(item.task_id);
+        addToKB.mutate({ task_id: item.task_id, topic_id: item.topic_id ?? undefined });
       } else if (data.dialogue_id) {
         setDialogueId(data.dialogue_id);
         setPhase("wrong");
@@ -136,7 +137,7 @@ function InlineTaskSolver({
     const { data } = await api.post<{ correct_answer: string }>(`/dialogue/${dialogueId}/give-up`);
     setGiveUpResult(data);
     setPhase("giveup");
-    updateBoosterReason(item.taskId, "ai");
+    updateBoosterReason.mutate({ taskId: item.task_id, reason: "ai" });
     await startStream(dialogueId);
   }
 
@@ -154,7 +155,6 @@ function InlineTaskSolver({
 
   return (
     <div className="flex flex-col gap-4 p-6">
-      {/* Reason badge */}
       <div>
         {item.reason === "skipped" ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-danger/10 px-3 py-1 text-sm font-medium text-danger">
@@ -167,7 +167,6 @@ function InlineTaskSolver({
         )}
       </div>
 
-      {/* Task content */}
       <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
         {task.question_text &&
           !(task.question_image_url &&
@@ -191,7 +190,6 @@ function InlineTaskSolver({
         )}
       </div>
 
-      {/* Answer input */}
       {(phase === "question" || phase === "submitting" || phase === "wrong") && (
         <div className="space-y-2">
           {phase === "wrong" && answer === wrongAnswer && (
@@ -215,7 +213,6 @@ function InlineTaskSolver({
         </div>
       )}
 
-      {/* AI tutor section */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/20 shrink-0">
@@ -236,10 +233,7 @@ function InlineTaskSolver({
               <p className="text-sm text-muted leading-relaxed">
                 Можем разобрать вместе — я задам наводящие вопросы.
               </p>
-              <button
-                onClick={startDialogue}
-                className="rounded-full bg-fg text-bg px-4 py-2 text-sm font-semibold hover:opacity-90 transition"
-              >
+              <button onClick={startDialogue} className="rounded-full bg-fg text-bg px-4 py-2 text-sm font-semibold hover:opacity-90 transition">
                 Помоги разобрать
               </button>
             </>
@@ -248,10 +242,7 @@ function InlineTaskSolver({
           {phase === "correct" && (
             <>
               <p className="text-sm font-medium text-success">Правильно! Задание убрано из бустера.</p>
-              <button
-                onClick={onSolved}
-                className="rounded-full bg-success/20 text-success px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition"
-              >
+              <button onClick={onSolved} className="rounded-full bg-success/20 text-success px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition">
                 Следующее →
               </button>
             </>
@@ -261,19 +252,12 @@ function InlineTaskSolver({
             <>
               {phase === "giveup" && giveUpResult && (
                 <div className="rounded-xl border border-success/30 bg-success/10 px-3 py-2.5 text-sm">
-                  Правильный ответ:{" "}
-                  <span className="font-semibold text-success">{giveUpResult.correct_answer}</span>
+                  Правильный ответ: <span className="font-semibold text-success">{giveUpResult.correct_answer}</span>
                 </div>
               )}
 
               {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "rounded-xl px-4 py-3 text-sm leading-relaxed",
-                    msg.role === "assistant" ? "bg-accent/10 border border-accent/15" : "bg-fg/5 ml-8",
-                  )}
-                >
+                <div key={i} className={cn("rounded-xl px-4 py-3 text-sm leading-relaxed", msg.role === "assistant" ? "bg-accent/10 border border-accent/15" : "bg-fg/5 ml-8")}>
                   <MathText text={msg.content} />
                 </div>
               ))}
@@ -333,38 +317,11 @@ function InlineTaskSolver({
 
 export default function BoosterPage() {
   const router = useRouter();
-  const [items, setItems] = useState<BoosterItem[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const { data: items = [], isLoading } = useBooster();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: path } = useSessionPath();
 
-  useEffect(() => {
-    const stored = getBooster();
-    setItems(stored);
-    if (stored.length > 0) setSelectedId(stored[0].taskId);
-    setLoaded(true);
-  }, []);
-
-  function handleSolved() {
-    const idx = items.findIndex((i) => i.taskId === selectedId);
-    removeFromBooster(selectedId!);
-    setItems((prev) => {
-      const next = prev.filter((i) => i.taskId !== selectedId);
-      const nextItem = next[idx] ?? next[idx - 1] ?? next[0] ?? null;
-      setSelectedId(nextItem?.taskId ?? null);
-      return next;
-    });
-  }
-
-  function handleNext() {
-    const idx = items.findIndex((i) => i.taskId === selectedId);
-    const nextItem = items[idx + 1] ?? items[idx - 1] ?? items[0] ?? null;
-    if (nextItem && nextItem.taskId !== selectedId) {
-      setSelectedId(nextItem.taskId);
-    }
-    // refresh list to reflect updated reason tag
-    setItems(getBooster());
-  }
+  const currentSelectedId = selectedId ?? items[0]?.task_id ?? null;
 
   const topicMeta = useMemo(() => {
     const map = new Map<string, { taskNumber: number; difficulty: number; subtopicNumber: string; subtopicTitle: string }>();
@@ -386,32 +343,47 @@ export default function BoosterPage() {
     type TaskGroup = { taskNumber: number; difficulty: number; subtopics: Map<string, SubGroup> };
     const byTask = new Map<number, TaskGroup>();
     items.forEach((item) => {
-      const meta = topicMeta.get(item.topicId);
+      const topicKey = item.topic_id ?? "";
+      const meta = topicMeta.get(topicKey);
       const taskNum = meta?.taskNumber ?? 0;
       if (!byTask.has(taskNum)) {
         byTask.set(taskNum, { taskNumber: taskNum, difficulty: meta?.difficulty ?? 2, subtopics: new Map() });
       }
       const taskGroup = byTask.get(taskNum)!;
-      if (!taskGroup.subtopics.has(item.topicId)) {
-        taskGroup.subtopics.set(item.topicId, {
+      if (!taskGroup.subtopics.has(topicKey)) {
+        taskGroup.subtopics.set(topicKey, {
           subtopicNumber: meta?.subtopicNumber ?? "—",
           subtopicTitle: meta?.subtopicTitle ?? "Неизвестный подтип",
           items: [],
         });
       }
-      taskGroup.subtopics.get(item.topicId)!.items.push(item);
+      taskGroup.subtopics.get(topicKey)!.items.push(item);
     });
     return Array.from(byTask.values()).sort((a, b) => a.taskNumber - b.taskNumber);
   }, [items, topicMeta]);
 
-  const selectedItem = items.find((i) => i.taskId === selectedId) ?? null;
+  const selectedItem = items.find((i) => i.task_id === currentSelectedId) ?? null;
+
+  function handleSolved() {
+    const idx = items.findIndex((i) => i.task_id === currentSelectedId);
+    const remaining = items.filter((i) => i.task_id !== currentSelectedId);
+    const nextItem = remaining[idx] ?? remaining[idx - 1] ?? remaining[0] ?? null;
+    setSelectedId(nextItem?.task_id ?? null);
+  }
+
+  function handleNext() {
+    const idx = items.findIndex((i) => i.task_id === currentSelectedId);
+    const nextItem = items[idx + 1] ?? items[idx - 1] ?? items[0] ?? null;
+    if (nextItem && nextItem.task_id !== currentSelectedId) {
+      setSelectedId(nextItem.task_id);
+    }
+  }
 
   return (
     <>
       <AppNav />
       <div className="flex flex-col h-[calc(100vh-3.5rem)]">
 
-        {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
           <Link href="/today" className="text-muted hover:text-fg transition">
             <ChevronLeft className="h-5 w-5" />
@@ -419,7 +391,7 @@ export default function BoosterPage() {
           <Zap className="h-5 w-5 text-accent" />
           <div className="flex-1">
             <h1 className="text-lg font-bold leading-tight">Бустер</h1>
-            {loaded && (
+            {!isLoading && (
               <p className="text-xs text-muted">
                 {items.length > 0 ? `${items.length} заданий для отработки` : "Все задания отработаны"}
               </p>
@@ -427,8 +399,14 @@ export default function BoosterPage() {
           </div>
         </div>
 
-        {/* Empty */}
-        {loaded && items.length === 0 && (
+        {isLoading && (
+          <div className="flex flex-col gap-4 p-6">
+            <div className="h-6 w-40 rounded-xl bg-fg/8 animate-pulse" />
+            <div className="h-40 rounded-2xl bg-fg/8 animate-pulse" />
+          </div>
+        )}
+
+        {!isLoading && items.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-20 text-center px-6">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/15">
               <Zap className="h-8 w-8 text-success" />
@@ -441,14 +419,11 @@ export default function BoosterPage() {
           </div>
         )}
 
-        {/* Split layout */}
-        {loaded && items.length > 0 && (
+        {!isLoading && items.length > 0 && (
           <div className="flex flex-1 overflow-hidden">
-
-            {/* Left — inline task solver */}
             <main className="flex-1 overflow-y-auto">
               {selectedItem ? (
-                <InlineTaskSolver key={selectedItem.taskId} item={selectedItem} onSolved={handleSolved} onNext={handleNext} />
+                <InlineTaskSolver key={selectedItem.task_id} item={selectedItem} onSolved={handleSolved} onNext={handleNext} />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted text-sm">
                   Выбери задание справа
@@ -456,7 +431,6 @@ export default function BoosterPage() {
               )}
             </main>
 
-            {/* Right sidebar — task list */}
             <aside className="w-56 shrink-0 overflow-y-auto border-l border-border bg-bg">
               {grouped.map((taskGroup) => {
                 const colors = SECTION_COLORS[taskGroup.difficulty] ?? SECTION_COLORS[2];
@@ -475,15 +449,15 @@ export default function BoosterPage() {
                           {subGroup.subtopicNumber} · {subGroup.subtopicTitle}
                         </p>
                         {subGroup.items.map((item, idx) => {
-                          const isSelected = item.taskId === selectedId;
+                          const isSelected = item.task_id === currentSelectedId;
                           return (
                             <button
-                              key={item.taskId}
+                              key={item.task_id}
                               onClick={() => {
                                 if (window.innerWidth < 768) {
-                                  router.push(`/task/${item.taskId}?booster=1`);
+                                  router.push(`/task/${item.task_id}?booster=1`);
                                 } else {
-                                  setSelectedId(item.taskId);
+                                  setSelectedId(item.task_id);
                                 }
                               }}
                               className={cn(
@@ -510,10 +484,8 @@ export default function BoosterPage() {
                 );
               })}
             </aside>
-
           </div>
         )}
-
       </div>
     </>
   );

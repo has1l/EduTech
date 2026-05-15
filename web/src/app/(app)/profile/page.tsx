@@ -11,7 +11,6 @@ import { AppNav } from "@/components/app-nav";
 import { Button } from "@/components/ui/button";
 import { apiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { clearKB } from "@/lib/knowledge-base";
 import { useMe, useStreak, useUpdateProfile } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -130,9 +129,7 @@ export default function ProfilePage() {
   });
 
   const logout = () => {
-    // Clear all client-side state tied to the user
-    localStorage.removeItem("booster_v1");
-    clearKB();
+    // Clear remaining client-side state (drawings, dialogue cache)
     Object.keys(localStorage)
       .filter((k) => k.startsWith("drawing_"))
       .forEach((k) => localStorage.removeItem(k));

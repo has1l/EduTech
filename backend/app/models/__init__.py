@@ -1,5 +1,6 @@
 from app.models.attempt import Attempt
 from app.models.base import Base
+from app.models.booster import BoosterItem, KnowledgeBaseItem
 from app.models.dialogue import AIDialogue
 from app.models.fsrs import FSRSCard
 from app.models.progress import UserTopicProgress
@@ -24,4 +25,6 @@ __all__ = [
     "UserTopicProgress",
     "FSRSCard",
     "Streak",
+    "BoosterItem",
+    "KnowledgeBaseItem",
 ]

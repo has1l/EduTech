@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Flame } from "lucide-react";
-import { useStreak } from "@/lib/queries";
-import { getBoosterCount } from "@/lib/booster";
+import { useStreak, useBoosterCount } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -19,10 +17,7 @@ const TABS = [
 export function AppNav() {
   const pathname = usePathname();
   const { data: streak } = useStreak();
-  const [boosterCount, setBoosterCount] = useState(0);
-  useEffect(() => {
-    setBoosterCount(getBoosterCount());
-  }, [pathname]);
+  const { data: boosterCount = 0 } = useBoosterCount();
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-bg/80 backdrop-blur">

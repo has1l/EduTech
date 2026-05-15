@@ -98,7 +98,6 @@ function KnowledgeBaseCard() {
     setLevel(getKBLevel());
   }, []);
 
-  const progress = level.nextAt === Infinity ? 1 : (count - (level.count - count + count)) / (level.nextAt - 0);
   const levelPct = level.nextAt === Infinity
     ? 100
     : Math.round(((count - getLevelMin(level.name)) / (level.nextAt - getLevelMin(level.name))) * 100);

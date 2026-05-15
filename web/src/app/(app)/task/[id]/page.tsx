@@ -570,29 +570,49 @@ export default function TaskPage() {
                 )}
 
                 {messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "rounded-xl px-4 py-3 text-sm leading-relaxed",
-                      msg.role === "assistant"
-                        ? "bg-accent/10 border border-accent/15"
-                        : "bg-fg/5 ml-8",
-                    )}
-                  >
-                    <MathText text={msg.content} />
-                  </div>
+                  msg.role === "assistant" ? (
+                    <div key={i} className="flex items-start gap-2">
+                      <video
+                        src="/mascot/idle.mp4"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="h-9 w-9 shrink-0 rounded-full object-cover mt-0.5"
+                        style={{ mixBlendMode: "multiply" }}
+                      />
+                      <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-accent/10 border border-accent/15 flex-1">
+                        <MathText text={msg.content} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={i} className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-fg/5 ml-8">
+                      <MathText text={msg.content} />
+                    </div>
+                  )
                 ))}
 
                 {streaming && (
-                  <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-accent/10 border border-accent/15">
-                    {streamingText ? (
-                      <>
-                        <MathText text={streamingText} />
-                        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-fg/60" />
-                      </>
-                    ) : (
-                      <span className="text-muted">AI думает...</span>
-                    )}
+                  <div className="flex items-start gap-2">
+                    <video
+                      src="/mascot/idle.mp4"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="h-9 w-9 shrink-0 rounded-full object-cover mt-0.5"
+                      style={{ mixBlendMode: "multiply" }}
+                    />
+                    <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-accent/10 border border-accent/15 flex-1">
+                      {streamingText ? (
+                        <>
+                          <MathText text={streamingText} />
+                          <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-fg/60" />
+                        </>
+                      ) : (
+                        <span className="text-muted">AI думает...</span>
+                      )}
+                    </div>
                   </div>
                 )}
 

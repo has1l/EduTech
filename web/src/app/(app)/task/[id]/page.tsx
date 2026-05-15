@@ -138,15 +138,6 @@ export default function TaskPage() {
   }
 
   function goNext() {
-    // Save to booster before leaving
-    if (task) {
-      const preview = task.question_text?.slice(0, 100) ?? "";
-      if (phase === "wrong") {
-        addToBooster({ taskId: id, topicId: task.topic_id, reason: "skipped", questionPreview: preview });
-      } else if (phase === "giveup" || (phase === "dialogue" && canGoNext)) {
-        addToBooster({ taskId: id, topicId: task.topic_id, reason: "ai", questionPreview: preview });
-      }
-    }
     if (queue.length === 0) {
       router.replace(isBooster ? "/booster" : "/today");
       return;
@@ -154,6 +145,20 @@ export default function TaskPage() {
     const [next, ...rest] = queue;
     const params = buildSessionParams(rest);
     router.push(`/task/${next}?${params.toString()}`);
+  }
+
+  function finishSession() {
+    if (task && allIds.length > 0) {
+      allIds.forEach((taskId, idx) => {
+        const pos = idx + 1;
+        if (!solvedPositions.has(pos)) {
+          const reason = aiPositions.has(pos) ? "ai" : "skipped";
+          const preview = taskId === id ? (task.question_text?.slice(0, 100) ?? "") : "";
+          addToBooster({ taskId, topicId: task.topic_id, reason, questionPreview: preview });
+        }
+      });
+    }
+    router.replace(isBooster ? "/booster" : "/session");
   }
 
   async function handleAddMore() {
@@ -300,6 +305,9 @@ export default function TaskPage() {
   }
 
   const inSession = total > 1;
+  const selfSolvedCount = solvedPositions.size;
+  const THRESHOLD = 5;
+  const thresholdReached = selfSolvedCount >= THRESHOLD;
   const assistantTurns = messages.filter((m) => m.role === "assistant").length;
   const canGoNext =
     !streaming &&
@@ -314,6 +322,7 @@ export default function TaskPage() {
 
         {/* Task dots navigation */}
         {inSession && (
+          <div className="space-y-2">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
             <button
               onClick={() => router.back()}
@@ -362,6 +371,27 @@ export default function TaskPage() {
             >
               <Plus className="h-4 w-4" />
             </button>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted">
+              {thresholdReached ? (
+                <span className="text-success font-medium">✓ Порог пройден — {selfSolvedCount}/{THRESHOLD}</span>
+              ) : (
+                <span>{selfSolvedCount}/{THRESHOLD} для разблокировки</span>
+              )}
+            </span>
+            <button
+              onClick={finishSession}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold transition",
+                thresholdReached
+                  ? "bg-success/20 text-success hover:bg-success/30"
+                  : "border border-border text-muted hover:bg-fg/5",
+              )}
+            >
+              Завершить
+            </button>
+          </div>
           </div>
         )}
 

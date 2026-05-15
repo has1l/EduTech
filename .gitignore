@@ -76,6 +76,9 @@ coverage.xml
 # Claude Code memory
 .claude/
 
+# Project instructions (local only)
+CLAUDE.md
+
 # Docker volumes
 postgres_data/
 redis_data/

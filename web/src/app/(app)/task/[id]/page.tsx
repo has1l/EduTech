@@ -377,7 +377,7 @@ export default function TaskPage() {
               {thresholdReached ? (
                 <span className="text-success font-medium">✓ Порог пройден — {selfSolvedCount}/{THRESHOLD}</span>
               ) : (
-                <span>{selfSolvedCount}/{THRESHOLD} для разблокировки</span>
+                <span>{selfSolvedCount}/{THRESHOLD} для разблокировки следующего подтипа</span>
               )}
             </span>
             <button

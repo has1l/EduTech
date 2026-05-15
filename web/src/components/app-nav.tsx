@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Flame } from "lucide-react";
 import { useStreak } from "@/lib/queries";
+import { getBoosterCount } from "@/lib/booster";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/today", label: "Курсы" },
   { href: "/progress", label: "Прогресс" },
+  { href: "/booster", label: "Бустер" },
   { href: "/theory", label: "Теория" },
   { href: "/profile", label: "Профиль" },
 ] as const;
@@ -16,6 +19,10 @@ const TABS = [
 export function AppNav() {
   const pathname = usePathname();
   const { data: streak } = useStreak();
+  const [boosterCount, setBoosterCount] = useState(0);
+  useEffect(() => {
+    setBoosterCount(getBoosterCount());
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-bg/80 backdrop-blur">
@@ -29,16 +36,22 @@ export function AppNav() {
               pathname.startsWith(t.href) ||
               (t.href === "/today" &&
                 (pathname.startsWith("/session") || pathname.startsWith("/task")));
+            const isBoosterTab = t.href === "/booster";
             return (
               <Link
                 key={t.href}
                 href={t.href}
                 className={cn(
-                  "rounded-full px-3 py-1.5 text-sm font-medium transition",
+                  "relative rounded-full px-3 py-1.5 text-sm font-medium transition",
                   active ? "bg-fg text-bg" : "text-muted hover:bg-fg/5",
                 )}
               >
                 {t.label}
+                {isBoosterTab && boosterCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-fg">
+                    {boosterCount > 9 ? "9+" : boosterCount}
+                  </span>
+                )}
               </Link>
             );
           })}

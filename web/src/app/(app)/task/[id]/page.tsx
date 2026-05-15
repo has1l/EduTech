@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, ChevronLeft, Sparkles } from "lucide-react";
+import { BookOpen, ChevronLeft, Plus, Sparkles } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { MathText } from "@/components/math-text";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTask } from "@/lib/queries";
 import { cn } from "@/lib/utils";
-import type { AnswerResult } from "@/lib/types";
+import { addToBooster, removeFromBooster } from "@/lib/booster";
+import type { AnswerResult, SubtopicSession } from "@/lib/types";
 
 const DIFFICULTY_LABEL: Record<number, string> = {
   1: "Лёгкий",
@@ -96,7 +97,9 @@ export default function TaskPage() {
   const [streaming, setStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [reply, setReply] = useState("");
+  const [addingMore, setAddingMore] = useState(false);
   const streamBuffer = useRef("");
+  const isBooster = searchParams.get("booster") === "1";
 
   // Persist dialogue state to sessionStorage
   useEffect(() => {
@@ -135,13 +138,53 @@ export default function TaskPage() {
   }
 
   function goNext() {
+    // Save to booster before leaving
+    if (task) {
+      const preview = task.question_text?.slice(0, 100) ?? "";
+      if (phase === "wrong") {
+        addToBooster({ taskId: id, topicId: task.topic_id, reason: "skipped", questionPreview: preview });
+      } else if (phase === "giveup" || (phase === "dialogue" && canGoNext)) {
+        addToBooster({ taskId: id, topicId: task.topic_id, reason: "ai", questionPreview: preview });
+      }
+    }
+    if (isBooster && phase === "correct") {
+      removeFromBooster(id);
+    }
     if (queue.length === 0) {
-      router.replace("/today");
+      router.replace(isBooster ? "/booster" : "/today");
       return;
     }
     const [next, ...rest] = queue;
     const params = buildSessionParams(rest);
     router.push(`/task/${next}?${params.toString()}`);
+  }
+
+  async function handleAddMore() {
+    if (!task || addingMore) return;
+    setAddingMore(true);
+    try {
+      const { data: session } = await api.get<SubtopicSession>(
+        `/tasks/subtopic-session?topic_id=${task.topic_id}&count=5`,
+      );
+      const newTasks = session.tasks.filter((t) => !allIds.includes(t.id) && t.id !== id);
+      if (newTasks.length === 0) return;
+      const newAllIds = [...allIds, ...newTasks.map((t) => t.id)];
+      const newQueue = [...queue, ...newTasks.map((t) => t.id)];
+      const newTotal = total + newTasks.length;
+      const params = new URLSearchParams();
+      if (newQueue.length > 0) params.set("queue", newQueue.join(","));
+      params.set("total", String(newTotal));
+      params.set("all", newAllIds.join(","));
+      const solved = Array.from(solvedPositions);
+      if (solved.length > 0) params.set("solved", solved.join(","));
+      const failed = Array.from(failedPositions);
+      if (failed.length > 0) params.set("failed", failed.join(","));
+      const ai = Array.from(aiPositions);
+      if (ai.length > 0) params.set("ai", ai.join(","));
+      router.replace(`/task/${id}?${params.toString()}`);
+    } finally {
+      setAddingMore(false);
+    }
   }
 
   async function startStream(dId: string) {
@@ -208,6 +251,7 @@ export default function TaskPage() {
       if (data.correct) {
         setPhase("correct");
         setSolvedPositions((prev) => new Set([...Array.from(prev), currentPos]));
+        if (isBooster) removeFromBooster(id);
       } else if (data.dialogue_id) {
         setDialogueId(data.dialogue_id);
         setPhase("wrong");
@@ -313,6 +357,14 @@ export default function TaskPage() {
                 </button>
               );
             })}
+            <button
+              onClick={handleAddMore}
+              disabled={addingMore}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:bg-fg/5 transition disabled:opacity-40"
+              title="Ещё задания этого типа"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
         )}
 

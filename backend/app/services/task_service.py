@@ -123,7 +123,7 @@ async def get_session_path(user, db: AsyncSession) -> SessionPathOut:
 
         for topic in group:
             attempts_count, correct_count = stats.get(topic.id, (0, 0))
-            is_completed = correct_count >= 1
+            is_completed = correct_count >= 5
 
             if is_completed:
                 state = "completed"

@@ -332,7 +332,6 @@ function TopicMapCard() {
         {sections.map((section) => {
           const sectionMastered = section.nodes.filter((n) => n.correct_count >= 5).length;
           const sectionTotal = section.nodes.length;
-          const pct = sectionTotal > 0 ? (sectionMastered / sectionTotal) * 100 : 0;
           const d = DIFF[section.difficulty] ?? DIFF[2];
           const isOpen = expanded === section.task_number;
 
@@ -433,9 +432,8 @@ export default function ProgressPage() {
     <>
       <AppNav />
       <main className="mx-auto max-w-3xl px-6 py-10 space-y-6">
-        {/* page title */}
         <div className="flex items-center gap-3">
-          <PxNum className="text-[15px] text-fg tracking-widest">// ПРОГРЕСС</PxNum>
+          <PxNum className="text-[15px] text-fg tracking-widest">{"// ПРОГРЕСС"}</PxNum>
         </div>
 
         {/* top row */}

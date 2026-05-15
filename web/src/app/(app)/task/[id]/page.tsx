@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, ChevronLeft, Plus } from "lucide-react";
+import { BookOpen, ChevronLeft, Eraser, Pencil, Plus, X } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { MathText } from "@/components/math-text";
 import { Button } from "@/components/ui/button";
@@ -108,6 +108,12 @@ export default function TaskPage() {
   const isBooster = searchParams.get("booster") === "1";
   const isReview = searchParams.get("review") === "1";
 
+  // Drawing
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const drawState = useRef({ isDrawing: false, lastX: 0, lastY: 0 });
+  const [activeTool, setActiveTool] = useState<"marker" | "eraser" | null>(null);
+
   // Persist dialogue state to sessionStorage
   useEffect(() => {
     if (phase === "question" || phase === "correct") {
@@ -120,6 +126,102 @@ export default function TaskPage() {
       JSON.stringify({ phase, answer, dialogueId, messages, theoryRef, giveUpResult }),
     );
   }, [id, phase, answer, dialogueId, messages, theoryRef, giveUpResult]);
+
+  // Resize canvas and restore saved drawing when task changes
+  useEffect(() => {
+    function restore() {
+      const canvas = canvasRef.current;
+      const container = contentRef.current;
+      if (!canvas || !container) return;
+      const { width, height } = container.getBoundingClientRect();
+      if (width === 0 || height === 0) return;
+      const saved = localStorage.getItem(`drawing_${id}`);
+      canvas.width = Math.floor(width);
+      canvas.height = Math.floor(height);
+      if (saved) {
+        const img = new Image();
+        img.onload = () => {
+          const ctx = canvas.getContext("2d");
+          if (ctx) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = saved;
+      }
+    }
+    restore();
+    // Re-run after images may have loaded and expanded the container
+    const timer = setTimeout(restore, 400);
+    return () => clearTimeout(timer);
+  }, [id]);
+
+  // ─── Drawing handlers ────────────────────────────────────────────────────────
+
+  function getCanvasPos(e: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  }
+
+  function applyTool(ctx: CanvasRenderingContext2D, tool: "marker" | "eraser") {
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    if (tool === "marker") {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "#ef4444";
+      ctx.fillStyle = "#ef4444";
+      ctx.lineWidth = 3;
+    } else {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.strokeStyle = "rgba(0,0,0,1)";
+      ctx.fillStyle = "rgba(0,0,0,1)";
+      ctx.lineWidth = 24;
+    }
+  }
+
+  function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!activeTool) return;
+    e.preventDefault();
+    canvasRef.current!.setPointerCapture(e.pointerId);
+    const { x, y } = getCanvasPos(e);
+    drawState.current = { isDrawing: true, lastX: x, lastY: y };
+    const ctx = canvasRef.current!.getContext("2d")!;
+    applyTool(ctx, activeTool);
+    ctx.beginPath();
+    ctx.arc(x, y, activeTool === "marker" ? 1.5 : 12, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!drawState.current.isDrawing || !activeTool) return;
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d")!;
+    const { x, y } = getCanvasPos(e);
+    applyTool(ctx, activeTool);
+    ctx.beginPath();
+    ctx.moveTo(drawState.current.lastX, drawState.current.lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    drawState.current.lastX = x;
+    drawState.current.lastY = y;
+  }
+
+  function onPointerUp() {
+    if (!drawState.current.isDrawing) return;
+    drawState.current.isDrawing = false;
+    const canvas = canvasRef.current;
+    if (canvas) localStorage.setItem(`drawing_${id}`, canvas.toDataURL());
+  }
+
+  function clearDrawing() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    localStorage.removeItem(`drawing_${id}`);
+  }
+
+  // ─── Session helpers ─────────────────────────────────────────────────────────
 
   function buildSessionParams(overrideQueue?: string[]): URLSearchParams {
     const params = new URLSearchParams();
@@ -444,8 +546,46 @@ export default function TaskPage() {
           </span>
         </div>
 
+        {/* Drawing toolbar */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setActiveTool((t) => (t === "marker" ? null : "marker"))}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition border",
+              activeTool === "marker"
+                ? "bg-danger/15 text-danger border-danger/30"
+                : "border-border text-muted hover:bg-fg/5",
+            )}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Маркер
+          </button>
+          <button
+            onClick={() => setActiveTool((t) => (t === "eraser" ? null : "eraser"))}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition border",
+              activeTool === "eraser"
+                ? "bg-fg/10 text-fg border-fg/20"
+                : "border-border text-muted hover:bg-fg/5",
+            )}
+          >
+            <Eraser className="h-3.5 w-3.5" />
+            Ластик
+          </button>
+          <button
+            onClick={clearDrawing}
+            className="ml-auto rounded-full border border-border p-1.5 text-muted hover:bg-fg/5 transition"
+            title="Очистить рисунок"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
         {/* Task content */}
-        <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+        <div
+          ref={contentRef}
+          className="relative rounded-2xl border border-border bg-card p-5 space-y-4 overflow-hidden"
+        >
           {task.question_text &&
             !(
               task.question_image_url &&
@@ -468,6 +608,20 @@ export default function TaskPage() {
               className="max-h-64 w-auto rounded-xl object-contain"
             />
           )}
+          {/* Canvas drawing overlay */}
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 rounded-2xl"
+            style={{
+              pointerEvents: activeTool ? "all" : "none",
+              cursor: activeTool === "marker" ? "crosshair" : activeTool === "eraser" ? "cell" : "default",
+              touchAction: activeTool ? "none" : "auto",
+            }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
+          />
         </div>
 
         {/* Answer input */}

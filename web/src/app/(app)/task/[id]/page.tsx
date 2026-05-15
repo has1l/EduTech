@@ -37,6 +37,7 @@ export default function TaskPage() {
   const tokens = useAuth((s) => s.tokens);
   const { data: task, isLoading } = useTask(id);
 
+  // Session navigation params
   const queueParam = searchParams.get("queue") ?? "";
   const queue = queueParam ? queueParam.split(",").filter(Boolean) : [];
   const totalParam = searchParams.get("total");
@@ -44,31 +45,12 @@ export default function TaskPage() {
   const currentPos = total - queue.length;
   const allParam = searchParams.get("all") ?? "";
   const allIds = allParam ? allParam.split(",").filter(Boolean) : [];
+  const solvedParam = searchParams.get("solved") ?? "";
 
-  function buildTaskUrl(targetPos: number): string {
-    const targetId = allIds[targetPos - 1];
-    if (!targetId) return "";
-    const newQueue = allIds.slice(targetPos);
-    const params = new URLSearchParams();
-    if (newQueue.length > 0) params.set("queue", newQueue.join(","));
-    params.set("total", String(total));
-    params.set("all", allIds.join(","));
-    return `/task/${targetId}?${params.toString()}`;
-  }
-
-  function goNext() {
-    if (queue.length === 0) {
-      router.replace("/today");
-      return;
-    }
-    const [next, ...rest] = queue;
-    const params = new URLSearchParams();
-    if (rest.length > 0) params.set("queue", rest.join(","));
-    params.set("total", String(total));
-    if (allIds.length > 0) params.set("all", allIds.join(","));
-    router.push(`/task/${next}?${params.toString()}`);
-  }
-
+  // State
+  const [solvedPositions, setSolvedPositions] = useState<Set<number>>(
+    () => new Set(solvedParam.split(",").filter(Boolean).map(Number)),
+  );
   const [answer, setAnswer] = useState("");
   const [phase, setPhase] = useState<Phase>("question");
   const [dialogueId, setDialogueId] = useState<string | null>(null);
@@ -79,6 +61,35 @@ export default function TaskPage() {
   const [reply, setReply] = useState("");
   const [giveUpResult, setGiveUpResult] = useState<{ correct_answer: string } | null>(null);
   const streamBuffer = useRef("");
+
+  function buildSessionParams(overrideQueue?: string[]): URLSearchParams {
+    const params = new URLSearchParams();
+    const q = overrideQueue ?? queue;
+    if (q.length > 0) params.set("queue", q.join(","));
+    params.set("total", String(total));
+    if (allIds.length > 0) params.set("all", allIds.join(","));
+    const solved = Array.from(solvedPositions);
+    if (solved.length > 0) params.set("solved", solved.join(","));
+    return params;
+  }
+
+  function buildTaskUrl(targetPos: number): string {
+    const targetId = allIds[targetPos - 1];
+    if (!targetId) return "";
+    const newQueue = allIds.slice(targetPos);
+    const params = buildSessionParams(newQueue);
+    return `/task/${targetId}?${params.toString()}`;
+  }
+
+  function goNext() {
+    if (queue.length === 0) {
+      router.replace("/today");
+      return;
+    }
+    const [next, ...rest] = queue;
+    const params = buildSessionParams(rest);
+    router.push(`/task/${next}?${params.toString()}`);
+  }
 
   async function startStream(dId: string) {
     if (!tokens) return;
@@ -143,6 +154,7 @@ export default function TaskPage() {
       });
       if (data.correct) {
         setPhase("correct");
+        setSolvedPositions((prev) => new Set([...Array.from(prev), currentPos]));
       } else if (data.dialogue_id) {
         setDialogueId(data.dialogue_id);
         setPhase("dialogue");
@@ -208,7 +220,7 @@ export default function TaskPage() {
             </button>
             {Array.from({ length: total }, (_, i) => {
               const pos = i + 1;
-              const isDone = pos < currentPos;
+              const isSolved = solvedPositions.has(pos);
               const isCurrent = pos === currentPos;
               const canNavigate = allIds.length > 0 && !isCurrent;
               return (
@@ -224,11 +236,9 @@ export default function TaskPage() {
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition",
                     isCurrent
                       ? "bg-fg text-bg cursor-default"
-                      : isDone
+                      : isSolved
                         ? "bg-success/20 text-success border border-success/30 hover:opacity-80 cursor-pointer"
-                        : allIds.length > 0
-                          ? "bg-fg/8 text-muted border border-border hover:bg-fg/15 cursor-pointer"
-                          : "bg-fg/8 text-muted border border-border cursor-default",
+                        : "bg-fg/8 text-muted border border-border hover:bg-fg/15 cursor-pointer",
                   )}
                 >
                   {pos}

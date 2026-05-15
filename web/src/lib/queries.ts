@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { useAuth } from "./auth";
-import type { SessionPath, Streak, Task, TodaySession, User } from "./types";
+import type { PlanOut, SessionPath, Streak, Task, TodaySession, User } from "./types";
 
 const ME_KEY = ["users", "me"] as const;
 
@@ -86,6 +86,31 @@ export function useStreak() {
     queryFn: async () => {
       const { data } = await api.get<Streak>("/streak");
       return data;
+    },
+  });
+}
+
+export function useStudyPlan() {
+  const tokens = useAuth((s) => s.tokens);
+  return useQuery({
+    queryKey: ["plan"],
+    enabled: !!tokens,
+    queryFn: async () => {
+      const { data } = await api.get<PlanOut>("/plan");
+      return data;
+    },
+  });
+}
+
+export function useGeneratePlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<PlanOut>("/plan/generate", {});
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(["plan"], data);
     },
   });
 }

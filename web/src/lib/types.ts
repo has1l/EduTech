@@ -97,3 +97,24 @@ export type DiagnosticResult = {
   correct: number;
   sections: DiagnosticSectionResult[];
 };
+
+export type PlanGroup = {
+  task_number: number;
+  title: string;
+  priority: number;
+  why: string;
+  status: "weak" | "medium" | "strong";
+  mastery_pct: number;
+};
+
+export type StudyPlan = {
+  summary: string;
+  groups: PlanGroup[];
+  generated_at: string;
+};
+
+export type PlanOut = {
+  plan: StudyPlan | null;
+  needs_generation: boolean;
+};
+

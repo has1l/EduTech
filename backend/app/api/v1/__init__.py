@@ -4,6 +4,7 @@ from app.api.v1 import (
     auth,
     diagnostic,
     dialogue,
+    plan,
     progress,
     sessions,
     streak,
@@ -23,3 +24,4 @@ api_router.include_router(dialogue.router, prefix="/dialogue", tags=["dialogue"]
 api_router.include_router(progress.router, prefix="/progress", tags=["progress"])
 api_router.include_router(theory.router, prefix="/theory", tags=["theory"])
 api_router.include_router(streak.router, prefix="/streak", tags=["streak"])
+api_router.include_router(plan.router, prefix="/plan", tags=["plan"])

@@ -1,6 +1,8 @@
-from datetime import date
+from datetime import date, datetime
+from typing import Any
 
-from sqlalchemy import Date, Integer, String
+from sqlalchemy import Date, DateTime, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, Timestamped, UUIDPrimaryKey
@@ -18,3 +20,6 @@ class User(Base, UUIDPrimaryKey, Timestamped):
     current_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     target_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     exam_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    study_plan: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    plan_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

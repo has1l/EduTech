@@ -24,7 +24,7 @@ const DIFFICULTY_COLOR: Record<number, string> = {
   3: "bg-danger/15 text-danger",
 };
 
-type Phase = "question" | "submitting" | "correct" | "dialogue" | "giveup";
+type Phase = "question" | "submitting" | "correct" | "wrong" | "dialogue" | "giveup";
 type Message = { role: "user" | "assistant"; content: string };
 type TheoryRef = { title: string; section_id: string };
 
@@ -163,15 +163,20 @@ export default function TaskPage() {
         setSolvedPositions((prev) => new Set([...Array.from(prev), currentPos]));
       } else if (data.dialogue_id) {
         setDialogueId(data.dialogue_id);
-        setPhase("dialogue");
+        setPhase("wrong");
         setFailedPositions((prev) => new Set([...Array.from(prev), currentPos]));
-        await startStream(data.dialogue_id);
       } else {
         setPhase("question");
       }
     } catch {
       setPhase("question");
     }
+  }
+
+  function startDialogue() {
+    if (!dialogueId) return;
+    setPhase("dialogue");
+    startStream(dialogueId);
   }
 
   async function sendReply() {
@@ -305,24 +310,31 @@ export default function TaskPage() {
         </div>
 
         {/* Answer input */}
-        {(phase === "question" || phase === "submitting") && (
-          <div className="flex gap-2">
-            <input
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submitAnswer()}
-              placeholder="Введи ответ..."
-              disabled={phase === "submitting"}
-              className="flex-1 rounded-2xl border border-border bg-transparent px-4 py-3 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
-            />
-            <Button
-              size="lg"
-              onClick={submitAnswer}
-              disabled={!answer.trim() || phase === "submitting"}
-              className="shrink-0"
-            >
-              {phase === "submitting" ? "..." : "Проверить"}
-            </Button>
+        {(phase === "question" || phase === "submitting" || phase === "wrong") && (
+          <div className="space-y-2">
+            {phase === "wrong" && (
+              <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
+                Ответ <span className="font-semibold">{answer}</span> — неверно. Попробуй ещё раз.
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitAnswer()}
+                placeholder="Введи ответ..."
+                disabled={phase === "submitting"}
+                className="flex-1 rounded-2xl border border-border bg-transparent px-4 py-3 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+              />
+              <Button
+                size="lg"
+                onClick={submitAnswer}
+                disabled={!answer.trim() || phase === "submitting"}
+                className="shrink-0"
+              >
+                {phase === "submitting" ? "..." : "Проверить"}
+              </Button>
+            </div>
           </div>
         )}
 
@@ -353,6 +365,28 @@ export default function TaskPage() {
               </>
             )}
 
+            {phase === "wrong" && (
+              <>
+                <p className="text-sm text-muted leading-relaxed">
+                  Можем разобрать задачу вместе — я задам наводящие вопросы, чтобы ты сам нашёл ошибку.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={startDialogue}
+                    className="rounded-full bg-fg text-bg px-4 py-2 text-sm font-semibold hover:opacity-90 transition"
+                  >
+                    Помоги разобрать
+                  </button>
+                  <button
+                    onClick={goNext}
+                    className="rounded-full border border-border px-4 py-2 text-sm text-muted hover:bg-fg/5 transition"
+                  >
+                    К следующему →
+                  </button>
+                </div>
+              </>
+            )}
+
             {phase === "correct" && (
               <>
                 <p className="text-sm font-medium text-success">Правильно! Отличная работа.</p>
@@ -367,12 +401,6 @@ export default function TaskPage() {
 
             {(phase === "dialogue" || phase === "giveup") && (
               <>
-                {answer && (
-                  <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
-                    Твой ответ: <span className="font-semibold">{answer}</span> — неверно
-                  </div>
-                )}
-
                 {phase === "giveup" && giveUpResult && (
                   <div className="rounded-xl border border-success/30 bg-success/10 px-3 py-2.5 text-sm">
                     Правильный ответ:{" "}

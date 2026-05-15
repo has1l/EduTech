@@ -32,6 +32,7 @@ const DIFFICULTY_COLOR: Record<number, string> = {
 type Phase = "question" | "submitting" | "correct" | "wrong" | "dialogue" | "giveup";
 type Message = { role: "user" | "assistant"; content: string };
 type TheoryRef = { title: string; section_id: string };
+type Stroke = { id: string; points: [number, number][]; color: string; width: number };
 
 interface SavedDialogue {
   phase: Phase;
@@ -46,6 +47,48 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 function dlgKey(taskId: string) {
   return `dlg_${taskId}`;
+}
+
+function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
+  if (stroke.points.length === 0) return;
+  ctx.save();
+  ctx.strokeStyle = stroke.color;
+  ctx.fillStyle = stroke.color;
+  ctx.lineWidth = stroke.width;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.globalCompositeOperation = "source-over";
+  if (stroke.points.length === 1) {
+    ctx.beginPath();
+    ctx.arc(stroke.points[0][0], stroke.points[0][1], stroke.width / 2, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(stroke.points[0][0], stroke.points[0][1]);
+    for (let i = 1; i < stroke.points.length; i++) {
+      ctx.lineTo(stroke.points[i][0], stroke.points[i][1]);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function distToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.sqrt((px - ax) ** 2 + (py - ay) ** 2);
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+  return Math.sqrt((px - (ax + t * dx)) ** 2 + (py - (ay + t * dy)) ** 2);
+}
+
+function strokeHit(stroke: Stroke, x: number, y: number, threshold: number): boolean {
+  const pts = stroke.points;
+  if (pts.length === 0) return false;
+  if (pts.length === 1) return Math.sqrt((x - pts[0][0]) ** 2 + (y - pts[0][1]) ** 2) < threshold;
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (distToSegment(x, y, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]) < threshold) return true;
+  }
+  return false;
 }
 
 export default function TaskPage() {
@@ -108,10 +151,13 @@ export default function TaskPage() {
   const isBooster = searchParams.get("booster") === "1";
   const isReview = searchParams.get("review") === "1";
 
-  // Drawing
+  // Drawing — stroke-based (each pen-down→pen-up = one Stroke object)
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const drawState = useRef({ isDrawing: false, lastX: 0, lastY: 0 });
+  const drawingRef = useRef({ isDrawing: false });
+  const currentStrokeRef = useRef<Stroke | null>(null);
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const strokesRef = useRef<Stroke[]>([]);
+  strokesRef.current = strokes;
   const [activeTool, setActiveTool] = useState<"marker" | "eraser" | null>(null);
 
   // Persist dialogue state to sessionStorage
@@ -127,31 +173,56 @@ export default function TaskPage() {
     );
   }, [id, phase, answer, dialogueId, messages, theoryRef, giveUpResult]);
 
-  // Resize canvas and restore saved drawing when task changes
+  // ─── Canvas setup ────────────────────────────────────────────────────────────
+
+  function redrawAll() {
+    const canvas = canvasRef.current;
+    if (!canvas || canvas.width === 0) return;
+    const ctx = canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const s of strokesRef.current) drawStroke(ctx, s);
+  }
+
+  // Load strokes from localStorage when task changes
   useEffect(() => {
-    function restore() {
-      const canvas = canvasRef.current;
-      const container = contentRef.current;
-      if (!canvas || !container) return;
-      const { width, height } = container.getBoundingClientRect();
-      if (width === 0 || height === 0) return;
-      const saved = localStorage.getItem(`drawing_${id}`);
-      canvas.width = Math.floor(width);
-      canvas.height = Math.floor(height);
-      if (saved) {
-        const img = new Image();
-        img.onload = () => {
-          const ctx = canvas.getContext("2d");
-          if (ctx) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
-        img.src = saved;
-      }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    try {
+      const raw = localStorage.getItem(`drawing_${id}`);
+      const loaded: Stroke[] = raw ? JSON.parse(raw) : [];
+      strokesRef.current = loaded;
+      setStrokes(loaded);
+      const ctx = canvas.getContext("2d")!;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const s of loaded) drawStroke(ctx, s);
+    } catch {
+      strokesRef.current = [];
+      setStrokes([]);
     }
-    restore();
-    // Re-run after images may have loaded and expanded the container
-    const timer = setTimeout(restore, 400);
-    return () => clearTimeout(timer);
-  }, [id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, task?.id]);
+
+  // Redraw when strokes state changes (erases cause this)
+  useEffect(() => {
+    redrawAll();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [strokes]);
+
+  // Keep canvas sized to window
+  useEffect(() => {
+    function handleResize() {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      redrawAll();
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── Drawing handlers ────────────────────────────────────────────────────────
 
@@ -163,19 +234,11 @@ export default function TaskPage() {
     return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
   }
 
-  function applyTool(ctx: CanvasRenderingContext2D, tool: "marker" | "eraser") {
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    if (tool === "marker") {
-      ctx.globalCompositeOperation = "source-over";
-      ctx.strokeStyle = "#ef4444";
-      ctx.fillStyle = "#ef4444";
-      ctx.lineWidth = 3;
-    } else {
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.strokeStyle = "rgba(0,0,0,1)";
-      ctx.fillStyle = "rgba(0,0,0,1)";
-      ctx.lineWidth = 24;
+  function eraseAt(x: number, y: number) {
+    const next = strokesRef.current.filter((s) => !strokeHit(s, x, y, 14));
+    if (next.length !== strokesRef.current.length) {
+      strokesRef.current = next;
+      setStrokes([...next]);
     }
   }
 
@@ -184,40 +247,58 @@ export default function TaskPage() {
     e.preventDefault();
     canvasRef.current!.setPointerCapture(e.pointerId);
     const { x, y } = getCanvasPos(e);
-    drawState.current = { isDrawing: true, lastX: x, lastY: y };
-    const ctx = canvasRef.current!.getContext("2d")!;
-    applyTool(ctx, activeTool);
-    ctx.beginPath();
-    ctx.arc(x, y, activeTool === "marker" ? 1.5 : 12, 0, Math.PI * 2);
-    ctx.fill();
+    drawingRef.current.isDrawing = true;
+
+    if (activeTool === "marker") {
+      const s: Stroke = { id: Math.random().toString(36).slice(2), points: [[x, y]], color: "#ef4444", width: 3 };
+      currentStrokeRef.current = s;
+      drawStroke(canvasRef.current!.getContext("2d")!, s);
+    } else {
+      eraseAt(x, y);
+    }
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (!drawState.current.isDrawing || !activeTool) return;
-    const canvas = canvasRef.current!;
-    const ctx = canvas.getContext("2d")!;
+    if (!drawingRef.current.isDrawing || !activeTool) return;
     const { x, y } = getCanvasPos(e);
-    applyTool(ctx, activeTool);
-    ctx.beginPath();
-    ctx.moveTo(drawState.current.lastX, drawState.current.lastY);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    drawState.current.lastX = x;
-    drawState.current.lastY = y;
+
+    if (activeTool === "marker" && currentStrokeRef.current) {
+      const prev = currentStrokeRef.current.points.at(-1)!;
+      currentStrokeRef.current.points.push([x, y]);
+      const ctx = canvasRef.current!.getContext("2d")!;
+      ctx.save();
+      ctx.strokeStyle = "#ef4444";
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(prev[0], prev[1]);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.restore();
+    } else if (activeTool === "eraser") {
+      eraseAt(x, y);
+    }
   }
 
   function onPointerUp() {
-    if (!drawState.current.isDrawing) return;
-    drawState.current.isDrawing = false;
-    const canvas = canvasRef.current;
-    if (canvas) localStorage.setItem(`drawing_${id}`, canvas.toDataURL());
+    if (!drawingRef.current.isDrawing) return;
+    drawingRef.current.isDrawing = false;
+
+    if (activeTool === "marker" && currentStrokeRef.current) {
+      const next = [...strokesRef.current, currentStrokeRef.current];
+      strokesRef.current = next;
+      setStrokes(next);
+      localStorage.setItem(`drawing_${id}`, JSON.stringify(next));
+      currentStrokeRef.current = null;
+    } else if (activeTool === "eraser") {
+      localStorage.setItem(`drawing_${id}`, JSON.stringify(strokesRef.current));
+    }
   }
 
   function clearDrawing() {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    strokesRef.current = [];
+    setStrokes([]);
     localStorage.removeItem(`drawing_${id}`);
   }
 
@@ -439,6 +520,21 @@ export default function TaskPage() {
     <>
       <AppNav />
 
+      {/* Full-page drawing canvas — fixed overlay, active only when tool selected */}
+      <canvas
+        ref={canvasRef}
+        className="fixed inset-0 z-40"
+        style={{
+          pointerEvents: activeTool ? "auto" : "none",
+          cursor: activeTool === "marker" ? "crosshair" : activeTool === "eraser" ? "cell" : "default",
+          touchAction: activeTool ? "none" : "auto",
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+      />
+
       {/* Streak celebration */}
       {streakFlash !== null && (
         <div className="fixed inset-x-0 top-16 z-50 flex justify-center pointer-events-none">
@@ -546,8 +642,8 @@ export default function TaskPage() {
           </span>
         </div>
 
-        {/* Drawing toolbar */}
-        <div className="flex items-center gap-1.5">
+        {/* Drawing toolbar — relative z-50 so it stays clickable above the canvas */}
+        <div className="relative z-50 flex items-center gap-1.5">
           <button
             onClick={() => setActiveTool((t) => (t === "marker" ? null : "marker"))}
             className={cn(
@@ -572,20 +668,24 @@ export default function TaskPage() {
             <Eraser className="h-3.5 w-3.5" />
             Ластик
           </button>
-          <button
-            onClick={clearDrawing}
-            className="ml-auto rounded-full border border-border p-1.5 text-muted hover:bg-fg/5 transition"
-            title="Очистить рисунок"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
+          {strokes.length > 0 && (
+            <button
+              onClick={clearDrawing}
+              className="rounded-full border border-border p-1.5 text-muted hover:bg-fg/5 transition"
+              title="Очистить рисунок"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {activeTool && (
+            <span className="ml-auto text-xs text-muted animate-pulse">
+              {activeTool === "marker" ? "Рисуй на экране" : "Нажми на линию — она исчезнет"}
+            </span>
+          )}
         </div>
 
         {/* Task content */}
-        <div
-          ref={contentRef}
-          className="relative rounded-2xl border border-border bg-card p-5 space-y-4 overflow-hidden"
-        >
+        <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
           {task.question_text &&
             !(
               task.question_image_url &&
@@ -608,25 +708,11 @@ export default function TaskPage() {
               className="max-h-64 w-auto rounded-xl object-contain"
             />
           )}
-          {/* Canvas drawing overlay */}
-          <canvas
-            ref={canvasRef}
-            className="absolute inset-0 rounded-2xl"
-            style={{
-              pointerEvents: activeTool ? "all" : "none",
-              cursor: activeTool === "marker" ? "crosshair" : activeTool === "eraser" ? "cell" : "default",
-              touchAction: activeTool ? "none" : "auto",
-            }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerLeave={onPointerUp}
-          />
         </div>
 
         {/* Answer input */}
         {(phase === "question" || phase === "submitting" || phase === "wrong") && (
-          <div className="space-y-2">
+          <div className="relative z-50 space-y-2">
             {phase === "wrong" && answer === wrongAnswer && (
               <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
                 Ответ <span className="font-semibold">{wrongAnswer}</span> — неверно. Попробуй ещё раз.
@@ -654,7 +740,7 @@ export default function TaskPage() {
         )}
 
         {/* AI tutor section */}
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="relative z-50 rounded-2xl border border-border bg-card overflow-hidden">
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
             <video
               src="/mascot/idle.mp4"

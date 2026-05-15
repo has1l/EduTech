@@ -46,10 +46,14 @@ export default function TaskPage() {
   const allParam = searchParams.get("all") ?? "";
   const allIds = allParam ? allParam.split(",").filter(Boolean) : [];
   const solvedParam = searchParams.get("solved") ?? "";
+  const failedParam = searchParams.get("failed") ?? "";
 
   // State
   const [solvedPositions, setSolvedPositions] = useState<Set<number>>(
     () => new Set(solvedParam.split(",").filter(Boolean).map(Number)),
+  );
+  const [failedPositions, setFailedPositions] = useState<Set<number>>(
+    () => new Set(failedParam.split(",").filter(Boolean).map(Number)),
   );
   const [answer, setAnswer] = useState("");
   const [phase, setPhase] = useState<Phase>("question");
@@ -70,6 +74,8 @@ export default function TaskPage() {
     if (allIds.length > 0) params.set("all", allIds.join(","));
     const solved = Array.from(solvedPositions);
     if (solved.length > 0) params.set("solved", solved.join(","));
+    const failed = Array.from(failedPositions);
+    if (failed.length > 0) params.set("failed", failed.join(","));
     return params;
   }
 
@@ -158,6 +164,7 @@ export default function TaskPage() {
       } else if (data.dialogue_id) {
         setDialogueId(data.dialogue_id);
         setPhase("dialogue");
+        setFailedPositions((prev) => new Set([...Array.from(prev), currentPos]));
         await startStream(data.dialogue_id);
       } else {
         setPhase("question");
@@ -221,6 +228,7 @@ export default function TaskPage() {
             {Array.from({ length: total }, (_, i) => {
               const pos = i + 1;
               const isSolved = solvedPositions.has(pos);
+              const isFailed = failedPositions.has(pos) && !isSolved;
               const isCurrent = pos === currentPos;
               const canNavigate = allIds.length > 0 && !isCurrent;
               return (
@@ -238,7 +246,9 @@ export default function TaskPage() {
                       ? "bg-fg text-bg cursor-default"
                       : isSolved
                         ? "bg-success/20 text-success border border-success/30 hover:opacity-80 cursor-pointer"
-                        : "bg-fg/8 text-muted border border-border hover:bg-fg/15 cursor-pointer",
+                        : isFailed
+                          ? "bg-danger/20 text-danger border border-danger/30 hover:opacity-80 cursor-pointer"
+                          : "bg-fg/8 text-muted border border-border hover:bg-fg/15 cursor-pointer",
                   )}
                 >
                   {pos}

@@ -528,9 +528,20 @@ export default function TaskPage() {
 
             {phase === "wrong" && (
               <>
-                <p className="text-sm text-muted leading-relaxed">
-                  Можем разобрать задачу вместе — я задам наводящие вопросы, чтобы ты сам нашёл ошибку.
-                </p>
+                <div className="flex items-center gap-3">
+                  <video
+                    src="/mascot/investigating.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="h-12 w-12 shrink-0 rounded-full object-cover"
+                    style={{ mixBlendMode: "multiply" }}
+                  />
+                  <p className="text-sm text-muted leading-relaxed">
+                    Можем разобрать задачу вместе — я задам наводящие вопросы, чтобы ты сам нашёл ошибку.
+                  </p>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={startDialogue}

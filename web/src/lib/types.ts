@@ -6,6 +6,7 @@ export type User = {
   current_score: number | null;
   target_score: number | null;
   exam_date: string | null;
+  diagnostic_completed_at: string | null;
 };
 
 export type TokenPair = {

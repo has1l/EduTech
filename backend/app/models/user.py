@@ -23,3 +23,4 @@ class User(Base, UUIDPrimaryKey, Timestamped):
 
     study_plan: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     plan_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    diagnostic_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

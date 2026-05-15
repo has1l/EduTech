@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, status
@@ -110,6 +111,11 @@ async def submit_diagnostic(
                 topic_title=topic.title if topic else "",
             )
         )
+
+    from app.models.user import User
+    db_user = await db.get(User, user.id)
+    if db_user is not None:
+        db_user.diagnostic_completed_at = datetime.now(timezone.utc)
 
     await db.commit()
     await redis.delete(f"{_SESSION_PREFIX}{body.session_id}")

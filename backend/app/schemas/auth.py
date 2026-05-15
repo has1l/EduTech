@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -32,6 +32,7 @@ class UserPublic(BaseModel):
     current_score: int | None
     target_score: int | None
     exam_date: date | None
+    diagnostic_completed_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Brain, ChevronLeft, ChevronRight, Loader2, RefreshCw, Star, Zap, Lock, CheckCircle2 } from "lucide-react";
+import { Brain, ChevronLeft, ChevronRight, ClipboardList, Loader2, RefreshCw, Star, Zap, Lock, CheckCircle2 } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { useMe, useSessionPath, useStudyPlan, useGeneratePlan } from "@/lib/queries";
 import { api } from "@/lib/api";
@@ -215,14 +215,40 @@ function PlanGroupCard({ group, priority, onStart }: { group: PlanGroup; priorit
 }
 
 function StudyPlanTab({ onStartTask }: { onStartTask: (taskNumber: number) => void }) {
+  const { data: me } = useMe();
   const { data: planData, isLoading } = useStudyPlan();
   const generate = useGeneratePlan();
+
+  const hasDiagnostic = !!me?.diagnostic_completed_at;
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-muted">
         <Loader2 className="h-6 w-6 animate-spin" />
         <p className="text-sm">Загружаем план...</p>
+      </div>
+    );
+  }
+
+  if (!hasDiagnostic) {
+    return (
+      <div className="flex flex-col items-center gap-6 py-12 px-4 text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-fg/8">
+          <ClipboardList className="h-10 w-10 text-muted" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold mb-2">Сначала диагностика</h2>
+          <p className="text-sm text-muted leading-relaxed">
+            Чтобы составить персональный план, AI-репетитору нужно знать твой уровень. Пройди входную диагностику — это займёт 15–20 минут.
+          </p>
+        </div>
+        <Link
+          href="/diagnostic"
+          className="flex items-center gap-2 rounded-2xl bg-fg text-bg px-6 py-3.5 text-sm font-bold hover:opacity-90 transition"
+        >
+          <ClipboardList className="h-4 w-4" />
+          Пройти диагностику
+        </Link>
       </div>
     );
   }
@@ -236,7 +262,7 @@ function StudyPlanTab({ onStartTask }: { onStartTask: (taskNumber: number) => vo
         <div>
           <h2 className="text-xl font-bold mb-2">Персональный план</h2>
           <p className="text-sm text-muted leading-relaxed">
-            AI-репетитор проанализирует твои результаты и составит оптимальный порядок подготовки — что учить первым, что можно отложить.
+            AI-репетитор проанализирует результаты диагностики и составит оптимальный порядок подготовки — что учить первым, что можно отложить.
           </p>
         </div>
         <button

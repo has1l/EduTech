@@ -33,10 +33,10 @@ const OGE_SCORES = [
 
 
 const EGE_TARGET = [
-  { value: 60, label: "60+", sub: "Хорошо" },
-  { value: 75, label: "75+", sub: "Отлично" },
-  { value: 85, label: "85+", sub: "Высокий" },
-  { value: 95, label: "95+", sub: "Топ" },
+  { value: 40, label: "40+", sub: "Начало" },
+  { value: 55, label: "55+", sub: "Хорошо" },
+  { value: 65, label: "65+", sub: "Отлично" },
+  { value: 70, label: "70", sub: "Максимум" },
 ] as const;
 
 function ScoreButtons<T extends number>({
@@ -105,7 +105,7 @@ export default function ProfilePage() {
     resolver: zodResolver(schema),
     values: {
       grade: (me?.grade === 9 ? 9 : 11) as 9 | 11,
-      target_score: me?.target_score ?? (isOge ? 4 : 80),
+      target_score: me?.target_score ?? (isOge ? 4 : 65),
       exam_year: me?.exam_date ? parseInt(me.exam_date.slice(0, 4)) : currentYear,
     },
   });
@@ -115,7 +115,7 @@ export default function ProfilePage() {
 
   function handleGradeChange(g: 9 | 11) {
     form.setValue("grade", g);
-    form.setValue("target_score", g === 9 ? 4 : 80);
+    form.setValue("target_score", g === 9 ? 4 : 65);
   }
 
   const onSubmit = form.handleSubmit(async (v) => {
@@ -240,7 +240,12 @@ export default function ProfilePage() {
               {formIsOge ? (
                 <ScoreButtons value={field.value as 3 | 4 | 5} onChange={field.onChange} options={OGE_SCORES} />
               ) : (
-                <ScoreButtons value={field.value as 60 | 75 | 85 | 95} onChange={field.onChange} options={EGE_TARGET} cols={4} />
+                <>
+                  <ScoreButtons value={field.value as 40 | 55 | 65 | 70} onChange={field.onChange} options={EGE_TARGET} cols={4} />
+                  <p className="mt-2 text-xs text-muted">
+                    Сейчас мы охватываем только Часть 1 (задания 1–12). Максимум за неё — 70 тестовых баллов.
+                  </p>
+                </>
               )}
             </div>
           )}

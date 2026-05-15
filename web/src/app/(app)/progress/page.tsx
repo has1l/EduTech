@@ -61,7 +61,8 @@ function ScoreCard() {
 
   const isOge = pred?.is_oge ?? false;
   const maxPossible = pred?.max_possible ?? (isOge ? 5 : 70);
-  const target = pred?.target ?? (me?.target_score ?? (isOge ? 4 : 85));
+  const rawTarget = pred?.target ?? (me?.target_score ?? (isOge ? 4 : 65));
+  const target = isOge ? rawTarget : Math.min(rawTarget, 70);
   const byPlan = pred?.by_plan ?? 0;
   const ifNothing = pred?.if_nothing ?? 0;
 

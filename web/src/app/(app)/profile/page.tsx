@@ -7,6 +7,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Flame, Snowflake, Trophy, LogOut, ClipboardList } from "lucide-react";
+import { AppNav } from "@/components/app-nav";
 import { Button } from "@/components/ui/button";
 import { apiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -135,7 +136,9 @@ export default function ProfilePage() {
   if (!me) return null;
 
   return (
-    <main className="mx-auto w-full max-w-xl px-6 py-8">
+    <>
+      <AppNav />
+      <main className="mx-auto w-full max-w-xl px-6 py-8">
       {/* Header */}
       <div className="mb-8 flex items-center gap-4">
         <Avatar name={me.name} email={me.email} />
@@ -287,5 +290,6 @@ export default function ProfilePage() {
         </button>
       </div>
     </main>
+    </>
   );
 }

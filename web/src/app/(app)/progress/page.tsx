@@ -110,6 +110,7 @@ function KnowledgeBaseCard() {
     if (rest.length > 0) params.set("queue", rest.join(","));
     params.set("total", String(ids.length));
     params.set("all", ids.join(","));
+    params.set("review", "1");
     router.push(`/task/${first}?${params.toString()}`);
   }
 

@@ -101,6 +101,7 @@ export default function TaskPage() {
   const [addingMore, setAddingMore] = useState(false);
   const streamBuffer = useRef("");
   const isBooster = searchParams.get("booster") === "1";
+  const isReview = searchParams.get("review") === "1";
 
   // Persist dialogue state to sessionStorage
   useEffect(() => {
@@ -140,11 +141,12 @@ export default function TaskPage() {
 
   function goNext() {
     if (queue.length === 0) {
-      router.replace(isBooster ? "/booster" : "/today");
+      router.replace(isBooster ? "/booster" : isReview ? "/progress" : "/today");
       return;
     }
     const [next, ...rest] = queue;
     const params = buildSessionParams(rest);
+    if (isReview) params.set("review", "1");
     router.push(`/task/${next}?${params.toString()}`);
   }
 
@@ -159,7 +161,7 @@ export default function TaskPage() {
         }
       });
     }
-    router.replace(isBooster ? "/booster" : "/session");
+    router.replace(isBooster ? "/booster" : isReview ? "/progress" : "/session");
   }
 
   async function handleAddMore() {

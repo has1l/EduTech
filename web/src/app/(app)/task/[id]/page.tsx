@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTask } from "@/lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { addToBooster, removeFromBooster } from "@/lib/booster";
 import { addToKB } from "@/lib/knowledge-base";
@@ -50,6 +51,7 @@ export default function TaskPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tokens = useAuth((s) => s.tokens);
+  const queryClient = useQueryClient();
   const { data: task, isLoading } = useTask(id);
 
   // Session navigation params
@@ -99,6 +101,7 @@ export default function TaskPage() {
   const [streamingText, setStreamingText] = useState("");
   const [reply, setReply] = useState("");
   const [addingMore, setAddingMore] = useState(false);
+  const [streakFlash, setStreakFlash] = useState<number | null>(null);
   const streamBuffer = useRef("");
   const isBooster = searchParams.get("booster") === "1";
   const isReview = searchParams.get("review") === "1";
@@ -258,6 +261,16 @@ export default function TaskPage() {
         setSolvedPositions((prev) => new Set([...Array.from(prev), currentPos]));
         removeFromBooster(id);
         addToKB(id, task.topic_id);
+        const cached = queryClient.getQueryData<{ current_streak: number; last_session_date: string | null }>(["streak"]);
+        const today = new Date().toISOString().slice(0, 10);
+        const isNewDay = cached?.last_session_date !== today;
+        if (isNewDay) {
+          api.post<{ current_streak: number }>("/streak/record", {}).then(({ data: s }) => {
+            queryClient.invalidateQueries({ queryKey: ["streak"] });
+            setStreakFlash(s.current_streak);
+            setTimeout(() => setStreakFlash(null), 3000);
+          }).catch(() => {});
+        }
       } else if (data.dialogue_id) {
         setDialogueId(data.dialogue_id);
         setPhase("wrong");
@@ -322,6 +335,17 @@ export default function TaskPage() {
   return (
     <>
       <AppNav />
+
+      {/* Streak celebration */}
+      {streakFlash !== null && (
+        <div className="fixed inset-x-0 top-16 z-50 flex justify-center pointer-events-none">
+          <div className="animate-bounce-in flex items-center gap-2 rounded-2xl bg-accent px-5 py-3 shadow-lg text-accent-fg font-bold text-base">
+            <span className="text-2xl">🔥</span>
+            {streakFlash} {streakFlash === 1 ? "день" : streakFlash < 5 ? "дня" : "дней"} подряд!
+          </div>
+        </div>
+      )}
+
       <main className="mx-auto max-w-2xl px-4 py-6 space-y-5">
 
         {/* Task dots navigation */}

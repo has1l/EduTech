@@ -5,62 +5,85 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, SkipForward, Sparkles, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
-import { useSessionPath } from "@/lib/queries";
+import { MathText } from "@/components/math-text";
+import { useSessionPath, useTask } from "@/lib/queries";
 import { getBooster, removeFromBooster, type BoosterItem } from "@/lib/booster";
 import { cn } from "@/lib/utils";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+
 const SECTION_COLORS: Record<number, { header: string; badge: string }> = {
-  1: { header: "border-success/30 bg-success/5", badge: "bg-success/20 text-success" },
-  2: { header: "border-accent/30 bg-accent/5",   badge: "bg-accent/20 text-accent" },
-  3: { header: "border-danger/30 bg-danger/5",   badge: "bg-danger/20 text-danger" },
+  1: { header: "border-success/20 bg-success/5", badge: "bg-success/20 text-success" },
+  2: { header: "border-accent/20 bg-accent/5",   badge: "bg-accent/20 text-accent" },
+  3: { header: "border-danger/20 bg-danger/5",   badge: "bg-danger/20 text-danger" },
 };
 
-function ReasonBadge({ reason }: { reason: BoosterItem["reason"] }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0",
-        reason === "skipped" ? "bg-danger/10 text-danger" : "bg-accent/10 text-accent",
-      )}
-    >
-      {reason === "skipped" ? (
-        <><SkipForward className="h-3 w-3" />Пропущено</>
-      ) : (
-        <><Sparkles className="h-3 w-3" />С помощью AI</>
-      )}
-    </span>
-  );
-}
-
-function TaskRow({
-  item,
-  onRemove,
-}: {
-  item: BoosterItem;
-  onRemove: () => void;
-}) {
+// Right panel: shows selected task
+function TaskPanel({ item, onRemove }: { item: BoosterItem; onRemove: () => void }) {
   const router = useRouter();
+  const { data: task, isLoading } = useTask(item.taskId);
+
+  if (isLoading || !task) {
+    return (
+      <div className="flex flex-col gap-4 p-6">
+        <div className="h-6 w-40 rounded-xl bg-fg/8 animate-pulse" />
+        <div className="h-40 rounded-2xl bg-fg/8 animate-pulse" />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
-      <div className="flex-1 min-w-0 space-y-1">
-        <ReasonBadge reason={item.reason} />
-        {item.questionPreview && (
-          <p className="text-sm text-muted leading-snug line-clamp-1">{item.questionPreview}</p>
+    <div className="flex flex-col gap-5 p-6">
+      {/* Reason badge */}
+      <div className="flex items-center gap-2">
+        {item.reason === "skipped" ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-danger/10 px-3 py-1 text-sm font-medium text-danger">
+            <SkipForward className="h-3.5 w-3.5" /> Пропущено
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-sm font-medium text-accent">
+            <Sparkles className="h-3.5 w-3.5" /> Решено с AI
+          </span>
         )}
       </div>
-      <div className="flex items-center gap-1.5 shrink-0">
+
+      {/* Task content */}
+      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+        {task.question_text &&
+          !(task.question_image_url &&
+            (task.question_text.endsWith("...") || task.question_text.endsWith("…"))) && (
+          <p className="text-base leading-relaxed whitespace-pre-wrap">
+            <MathText text={task.question_text} />
+          </p>
+        )}
+        {task.question_image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={
+              task.question_image_url.startsWith("data:") ||
+              task.question_image_url.startsWith("https://storage.yandexcloud.net")
+                ? task.question_image_url
+                : `${API_URL}/tasks/image-proxy?url=${encodeURIComponent(task.question_image_url)}`
+            }
+            alt="Рисунок к задаче"
+            className="w-full rounded-xl"
+          />
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2">
         <button
           onClick={() => router.push(`/task/${item.taskId}?booster=1`)}
-          className="rounded-lg bg-fg text-bg px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition"
+          className="flex-1 rounded-xl bg-fg text-bg py-3 text-sm font-semibold hover:opacity-90 transition"
         >
-          Разобрать
+          Разобрать →
         </button>
         <button
           onClick={onRemove}
-          className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted hover:bg-fg/5 transition"
+          className="rounded-xl border border-border px-4 py-3 text-sm text-muted hover:bg-fg/5 transition"
         >
-          ✕
+          Удалить
         </button>
       </div>
     </div>
@@ -68,26 +91,31 @@ function TaskRow({
 }
 
 export default function BoosterPage() {
+  const router = useRouter();
   const [items, setItems] = useState<BoosterItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: path } = useSessionPath();
 
   useEffect(() => {
-    setItems(getBooster());
+    const stored = getBooster();
+    setItems(stored);
+    if (stored.length > 0) setSelectedId(stored[0].taskId);
     setLoaded(true);
   }, []);
 
   function remove(taskId: string) {
     removeFromBooster(taskId);
-    setItems((prev) => prev.filter((i) => i.taskId !== taskId));
+    setItems((prev) => {
+      const next = prev.filter((i) => i.taskId !== taskId);
+      if (selectedId === taskId) setSelectedId(next[0]?.taskId ?? null);
+      return next;
+    });
   }
 
-  // Build topic_id → { taskNumber, difficulty, subtopicNumber, subtopicTitle } map
+  // topic_id → { taskNumber, difficulty, subtopicNumber, subtopicTitle }
   const topicMeta = useMemo(() => {
-    const map = new Map<
-      string,
-      { taskNumber: number; difficulty: number; subtopicNumber: string; subtopicTitle: string }
-    >();
+    const map = new Map<string, { taskNumber: number; difficulty: number; subtopicNumber: string; subtopicTitle: string }>();
     path?.sections.forEach((section) => {
       section.nodes.forEach((node) => {
         map.set(String(node.topic_id), {
@@ -110,16 +138,16 @@ export default function BoosterPage() {
     items.forEach((item) => {
       const meta = topicMeta.get(item.topicId);
       const taskNum = meta?.taskNumber ?? 0;
-      const difficulty = meta?.difficulty ?? 2;
-      const subtopicNumber = meta?.subtopicNumber ?? "—";
-      const subtopicTitle = meta?.subtopicTitle ?? "Неизвестный подтип";
-
       if (!byTask.has(taskNum)) {
-        byTask.set(taskNum, { taskNumber: taskNum, difficulty, subtopics: new Map() });
+        byTask.set(taskNum, { taskNumber: taskNum, difficulty: meta?.difficulty ?? 2, subtopics: new Map() });
       }
       const taskGroup = byTask.get(taskNum)!;
       if (!taskGroup.subtopics.has(item.topicId)) {
-        taskGroup.subtopics.set(item.topicId, { subtopicNumber, subtopicTitle, items: [] });
+        taskGroup.subtopics.set(item.topicId, {
+          subtopicNumber: meta?.subtopicNumber ?? "—",
+          subtopicTitle: meta?.subtopicTitle ?? "Неизвестный подтип",
+          items: [],
+        });
       }
       taskGroup.subtopics.get(item.topicId)!.items.push(item);
     });
@@ -127,91 +155,120 @@ export default function BoosterPage() {
     return Array.from(byTask.values()).sort((a, b) => a.taskNumber - b.taskNumber);
   }, [items, topicMeta]);
 
+  const selectedItem = items.find((i) => i.taskId === selectedId) ?? null;
+
   return (
     <>
       <AppNav />
-      <main className="mx-auto max-w-md px-6 py-10 space-y-6">
+      <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+
         {/* Header */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
           <Link href="/today" className="text-muted hover:text-fg transition">
             <ChevronLeft className="h-5 w-5" />
           </Link>
+          <Zap className="h-5 w-5 text-accent" />
           <div className="flex-1">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Zap className="h-6 w-6 text-accent" />
-              Бустер
-            </h1>
-            <p className="text-sm text-muted">
-              {loaded && items.length > 0 ? `${items.length} заданий для отработки` : "Задания для повторной отработки"}
-            </p>
+            <h1 className="text-lg font-bold leading-tight">Бустер</h1>
+            {loaded && (
+              <p className="text-xs text-muted">
+                {items.length > 0 ? `${items.length} заданий для отработки` : "Все задания отработаны"}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Loading */}
-        {!loaded && (
-          <div className="space-y-3">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-32 rounded-2xl animate-pulse bg-fg/5" />
-            ))}
-          </div>
-        )}
-
         {/* Empty */}
         {loaded && items.length === 0 && (
-          <div className="flex flex-col items-center gap-3 py-20 text-center">
+          <div className="flex flex-col items-center gap-3 py-20 text-center px-6">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/15">
               <Zap className="h-8 w-8 text-success" />
             </div>
             <p className="text-lg font-semibold">Всё отработано!</p>
-            <p className="text-sm text-muted">
-              Здесь появятся задания, которые ты пропустил или решил с помощью AI.
-            </p>
-            <Link
-              href="/session"
-              className="mt-2 rounded-full bg-fg text-bg px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition"
-            >
+            <p className="text-sm text-muted">Здесь появятся задания, которые ты пропустил или решил с помощью AI.</p>
+            <Link href="/session" className="mt-2 rounded-full bg-fg text-bg px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition">
               Продолжить учёбу →
             </Link>
           </div>
         )}
 
-        {/* Grouped list */}
-        {loaded && grouped.map((taskGroup) => {
-          const colors = SECTION_COLORS[taskGroup.difficulty] ?? SECTION_COLORS[2];
-          const totalInGroup = Array.from(taskGroup.subtopics.values()).reduce(
-            (s, sg) => s + sg.items.length, 0,
-          );
+        {/* Split layout */}
+        {loaded && items.length > 0 && (
+          <div className="flex flex-1 overflow-hidden">
 
-          return (
-            <div key={taskGroup.taskNumber} className="rounded-2xl border border-border overflow-hidden">
-              {/* Task header */}
-              <div className={cn("flex items-center gap-3 px-4 py-3 border-b border-border/50", colors.header)}>
-                <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold", colors.badge)}>
-                  {taskGroup.taskNumber || "?"}
-                </div>
-                <span className="flex-1 text-sm font-semibold">
-                  {taskGroup.taskNumber ? `Задание ${taskGroup.taskNumber}` : "Прочее"}
-                </span>
-                <span className="text-xs text-muted">{totalInGroup} шт</span>
-              </div>
+            {/* Left sidebar — task list */}
+            <aside className="w-64 shrink-0 overflow-y-auto border-r border-border">
+              {grouped.map((taskGroup) => {
+                const colors = SECTION_COLORS[taskGroup.difficulty] ?? SECTION_COLORS[2];
+                return (
+                  <div key={taskGroup.taskNumber}>
+                    {/* Task section header */}
+                    <div className={cn("flex items-center gap-2 px-3 py-2 sticky top-0 border-b border-border/50", colors.header)}>
+                      <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold", colors.badge)}>
+                        {taskGroup.taskNumber || "?"}
+                      </span>
+                      <span className="text-xs font-semibold">Задание {taskGroup.taskNumber}</span>
+                    </div>
 
-              {/* Subtopics */}
-              <div className="divide-y divide-border/50">
-                {Array.from(taskGroup.subtopics.entries()).map(([topicId, subGroup]) => (
-                  <div key={topicId} className="px-4 py-3">
-                    <p className="text-xs font-semibold text-muted mb-1">
-                      {subGroup.subtopicNumber} · {subGroup.subtopicTitle}
-                    </p>
-                    {subGroup.items.map((item) => (
-                      <TaskRow key={item.taskId} item={item} onRemove={() => remove(item.taskId)} />
+                    {/* Subtopics */}
+                    {Array.from(taskGroup.subtopics.entries()).map(([topicId, subGroup]) => (
+                      <div key={topicId}>
+                        <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-muted uppercase tracking-wide">
+                          {subGroup.subtopicNumber} · {subGroup.subtopicTitle}
+                        </p>
+                        {subGroup.items.map((item, idx) => {
+                          const isSelected = item.taskId === selectedId;
+                          return (
+                            <button
+                              key={item.taskId}
+                              onClick={() => {
+                                // mobile: navigate directly; desktop: show in panel
+                                if (window.innerWidth < 768) {
+                                  router.push(`/task/${item.taskId}?booster=1`);
+                                } else {
+                                  setSelectedId(item.taskId);
+                                }
+                              }}
+                              className={cn(
+                                "w-full flex items-center gap-2 px-3 py-2.5 text-left transition border-b border-border/30 last:border-0",
+                                isSelected ? "bg-fg/8" : "hover:bg-fg/5",
+                              )}
+                            >
+                              <span className="text-xs text-muted w-4 shrink-0">{idx + 1}</span>
+                              {item.reason === "skipped" ? (
+                                <span className="flex items-center gap-1 text-xs text-danger">
+                                  <SkipForward className="h-3 w-3" /> Пропущено
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 text-xs text-accent">
+                                  <Sparkles className="h-3 w-3" /> С AI
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </main>
+                );
+              })}
+            </aside>
+
+            {/* Right panel — task content */}
+            <main className="flex-1 overflow-y-auto">
+              {selectedItem ? (
+                <TaskPanel item={selectedItem} onRemove={() => remove(selectedItem.taskId)} />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted text-sm">
+                  Выбери задание слева
+                </div>
+              )}
+            </main>
+
+          </div>
+        )}
+
+      </div>
     </>
   );
 }

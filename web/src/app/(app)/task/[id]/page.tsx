@@ -42,6 +42,19 @@ export default function TaskPage() {
   const totalParam = searchParams.get("total");
   const total = totalParam ? parseInt(totalParam) : queue.length + 1;
   const currentPos = total - queue.length;
+  const allParam = searchParams.get("all") ?? "";
+  const allIds = allParam ? allParam.split(",").filter(Boolean) : [];
+
+  function buildTaskUrl(targetPos: number): string {
+    const targetId = allIds[targetPos - 1];
+    if (!targetId) return "";
+    const newQueue = allIds.slice(targetPos);
+    const params = new URLSearchParams();
+    if (newQueue.length > 0) params.set("queue", newQueue.join(","));
+    params.set("total", String(total));
+    params.set("all", allIds.join(","));
+    return `/task/${targetId}?${params.toString()}`;
+  }
 
   function goNext() {
     if (queue.length === 0) {
@@ -52,6 +65,7 @@ export default function TaskPage() {
     const params = new URLSearchParams();
     if (rest.length > 0) params.set("queue", rest.join(","));
     params.set("total", String(total));
+    if (allIds.length > 0) params.set("all", allIds.join(","));
     router.push(`/task/${next}?${params.toString()}`);
   }
 
@@ -196,20 +210,29 @@ export default function TaskPage() {
               const pos = i + 1;
               const isDone = pos < currentPos;
               const isCurrent = pos === currentPos;
+              const canNavigate = allIds.length > 0 && !isCurrent;
               return (
-                <div
+                <button
                   key={i}
+                  onClick={() => {
+                    if (!canNavigate) return;
+                    const url = buildTaskUrl(pos);
+                    if (url) router.push(url);
+                  }}
+                  disabled={!canNavigate}
                   className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition",
                     isCurrent
-                      ? "bg-fg text-bg"
+                      ? "bg-fg text-bg cursor-default"
                       : isDone
-                        ? "bg-success/20 text-success border border-success/30"
-                        : "bg-fg/8 text-muted border border-border",
+                        ? "bg-success/20 text-success border border-success/30 hover:opacity-80 cursor-pointer"
+                        : allIds.length > 0
+                          ? "bg-fg/8 text-muted border border-border hover:bg-fg/15 cursor-pointer"
+                          : "bg-fg/8 text-muted border border-border cursor-default",
                   )}
                 >
                   {pos}
-                </div>
+                </button>
               );
             })}
           </div>

@@ -174,9 +174,6 @@ function KnowledgeBaseCard() {
   );
 }
 
-function getLevelMin(name: string): number {
-  const map: Record<string, number> = { "Новичок": 0, "Ученик": 10, "Знаток": 25, "Мастер": 50, "Эксперт": 100 };
-  return map[name] ?? 0;
 }
 
 function TopicMapCard() {

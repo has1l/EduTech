@@ -6,7 +6,21 @@ import { CheckCircle2, XCircle, ChevronRight, Trophy } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useMe, useUpdateProfile } from "@/lib/queries";
 import type { DiagnosticResult, DiagnosticSectionResult } from "@/lib/types";
+
+function computeCurrentScore(correct: number, total: number, grade: number | null): number {
+  const pct = total > 0 ? correct / total : 0;
+  if (grade === 9) {
+    if (correct >= 9) return 5;
+    if (correct >= 4) return 4;
+    return 3;
+  }
+  if (pct >= 0.75) return 85;
+  if (pct >= 0.55) return 70;
+  if (pct >= 0.30) return 50;
+  return 30;
+}
 
 const DIFFICULTY_STYLES: Record<number, { badge: string; label: string }> = {
   1: { badge: "bg-success/15 text-success border-success/20", label: "Лёгкое" },
@@ -59,15 +73,21 @@ function getVerdict(pct: number): { title: string; sub: string } {
 
 export default function DiagnosticResultPage() {
   const [result, setResult] = useState<DiagnosticResult | null>(null);
+  const { data: me } = useMe();
+  const updateProfile = useUpdateProfile();
 
   useEffect(() => {
     const raw = sessionStorage.getItem("diagnostic_result");
     if (raw) {
       try {
-        setResult(JSON.parse(raw));
+        const parsed: DiagnosticResult = JSON.parse(raw);
+        setResult(parsed);
         sessionStorage.removeItem("diagnostic_result");
+        const score = computeCurrentScore(parsed.correct, parsed.total, me?.grade ?? null);
+        updateProfile.mutate({ current_score: score });
       } catch {}
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!result) {
@@ -138,7 +158,7 @@ export default function DiagnosticResultPage() {
 
         {/* CTA */}
         <div className="flex flex-col gap-3">
-          <Link href="/session">
+          <Link href="/today">
             <Button className="w-full" size="lg">
               Начать обучение по плану
               <ChevronRight className="h-4 w-4 ml-1" />

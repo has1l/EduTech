@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 
 const schema = z.object({
   grade: z.union([z.literal(9), z.literal(11)]),
-  current_score: z.number({ error: "Выбери значение" }).int().min(3).max(100),
   target_score: z.number({ error: "Выбери значение" }).int().min(3).max(100),
   exam_year: z.number().int().min(2025).max(2030),
 });
@@ -71,7 +70,7 @@ export default function OnboardingPage() {
   const mutation = useUpdateProfile();
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { grade: 11, current_score: 50, target_score: 80, exam_year: currentYear },
+    defaultValues: { grade: 11, target_score: 80, exam_year: currentYear },
   });
 
   const grade = form.watch("grade");
@@ -79,16 +78,8 @@ export default function OnboardingPage() {
 
   function handleGradeChange(g: 9 | 11) {
     form.setValue("grade", g);
-    form.setValue("current_score", g === 9 ? 3 : 50);
     form.setValue("target_score", g === 9 ? 4 : 80);
   }
-
-  const egeScoreOptions = [
-    { value: 30, label: "~30", sub: "Начинаю" },
-    { value: 50, label: "~50", sub: "Базовый" },
-    { value: 70, label: "~70", sub: "Уверенный" },
-    { value: 85, label: "~85", sub: "Высокий" },
-  ] as const;
 
   const egeTargetOptions = [
     { value: 60, label: "60+", sub: "Хорошо" },
@@ -100,11 +91,10 @@ export default function OnboardingPage() {
   const onSubmit = form.handleSubmit(async (v) => {
     await mutation.mutateAsync({
       grade: v.grade,
-      current_score: v.current_score,
       target_score: v.target_score,
       exam_date: `${v.exam_year}-06-01`,
     });
-    router.replace("/today");
+    router.replace("/diagnostic");
   });
 
   return (
@@ -137,28 +127,6 @@ export default function OnboardingPage() {
             })}
           </div>
         </div>
-
-        {/* Текущий уровень */}
-        <Controller
-          control={form.control}
-          name="current_score"
-          render={({ field }) => (
-            <div>
-              <span className="mb-2 block text-sm font-medium">
-                {isOge ? "Какая оценка сейчас?" : "Какой балл сейчас (примерно)?"}
-              </span>
-              {isOge ? (
-                <ScoreButtons value={field.value} onChange={field.onChange} options={OGE_SCORES} />
-              ) : (
-                <ScoreButtons
-                  value={field.value}
-                  onChange={field.onChange}
-                  options={egeScoreOptions}
-                />
-              )}
-            </div>
-          )}
-        />
 
         {/* Цель */}
         <Controller

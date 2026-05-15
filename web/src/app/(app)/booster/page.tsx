@@ -11,6 +11,7 @@ import { useSessionPath, useTask } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { getBooster, removeFromBooster, updateBoosterReason, type BoosterItem } from "@/lib/booster";
+import { addToKB } from "@/lib/knowledge-base";
 import { cn } from "@/lib/utils";
 import type { AnswerResult } from "@/lib/types";
 
@@ -102,6 +103,7 @@ function InlineTaskSolver({
       if (data.correct) {
         setPhase("correct");
         removeFromBooster(item.taskId);
+        addToKB(item.taskId, item.topicId);
       } else if (data.dialogue_id) {
         setDialogueId(data.dialogue_id);
         setPhase("wrong");

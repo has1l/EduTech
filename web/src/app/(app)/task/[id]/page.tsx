@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { useTask } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { addToBooster, removeFromBooster } from "@/lib/booster";
+import { addToKB } from "@/lib/knowledge-base";
 import type { AnswerResult, SubtopicSession } from "@/lib/types";
 
 const DIFFICULTY_LABEL: Record<number, string> = {
@@ -254,6 +255,7 @@ export default function TaskPage() {
         setPhase("correct");
         setSolvedPositions((prev) => new Set([...Array.from(prev), currentPos]));
         removeFromBooster(id);
+        addToKB(id, task.topic_id);
       } else if (data.dialogue_id) {
         setDialogueId(data.dialogue_id);
         setPhase("wrong");

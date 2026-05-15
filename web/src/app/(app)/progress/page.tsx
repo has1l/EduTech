@@ -1,198 +1,284 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { BookOpen, Brain, Flame, RotateCcw, TrendingUp, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
-import { useMe } from "@/lib/queries";
+import { useMe, useSessionPath, useStreak } from "@/lib/queries";
+import { getKBCount, getKBLevel, getKBTaskIds } from "@/lib/knowledge-base";
 import { cn } from "@/lib/utils";
-import { Flame, TrendingUp, BookOpen } from "lucide-react";
 
-const MOCK_STREAK = 7;
-const MOCK_FREEZES = 2;
+// ─── helpers ────────────────────────────────────────────────────────────────
 
-const MOCK_SCORE = {
-  target: 85,
-  current: 58,
-  if_nothing: 51,
-  if_plan: 83,
-  exam_date: "1 июня 2026",
-  days_left: 19,
-};
-
-const MOCK_TOPICS = [
-  { title: "Проценты и доли", mastery: 0.9, status: "green" as const },
-  { title: "Степени и корни", mastery: 0.76, status: "green" as const },
-  { title: "Уравнения", mastery: 0.64, status: "yellow" as const },
-  { title: "Неравенства", mastery: 0.55, status: "yellow" as const },
-  { title: "Функции и графики", mastery: 0.48, status: "yellow" as const },
-  { title: "Геометрия · треугольники", mastery: 0.3, status: "red" as const },
-  { title: "Вписанный угол", mastery: 0.21, status: "red" as const },
-  { title: "Тригонометрия", mastery: 0.15, status: "red" as const },
-  { title: "Производная", mastery: 0.1, status: "red" as const },
-  { title: "Интеграл", mastery: 0.05, status: "red" as const },
-];
-
-const STATUS_COLOR = {
-  green: "bg-success",
-  yellow: "bg-yellow-400",
-  red: "bg-danger",
-};
-
-const STATUS_LABEL = {
-  green: "Знаю",
-  yellow: "Учу",
-  red: "Слабо",
-};
-
-function ScoreBar({
-  value,
-  max,
-  color,
-}: {
-  value: number;
-  max: number;
-  color: string;
-}) {
+function Bar({ value, max, className }: { value: number; max: number; className: string }) {
+  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
-    <div className="flex items-center gap-3">
-      <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-border">
-        <div
-          className={cn("absolute inset-y-0 left-0 rounded-full transition-all", color)}
-          style={{ width: `${(value / max) * 100}%` }}
-        />
-      </div>
-      <span className="w-8 text-right text-sm font-semibold tabular-nums">
-        {value}
-      </span>
+    <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-border">
+      <div className={cn("absolute inset-y-0 left-0 rounded-full transition-all duration-700", className)} style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
-export default function ProgressPage() {
+const DIFFICULTY_COLOR = { 1: "bg-success", 2: "bg-accent", 3: "bg-danger" } as Record<number, string>;
+
+// ─── components ─────────────────────────────────────────────────────────────
+
+function StreakCard() {
+  const { data: streak } = useStreak();
+  const current = streak?.current_streak ?? 0;
+  const longest = streak?.longest_streak ?? 0;
+  const freezes = streak?.freezes_available ?? 0;
+
+  const days = Array.from({ length: 7 }, (_, i) => i < current % 7 || current >= 7);
+
+  return (
+    <section className="rounded-3xl border border-border p-5">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-accent-fg">
+          <Flame className="h-6 w-6" />
+        </div>
+        <div>
+          <p className="text-2xl font-bold leading-tight">{current} <span className="text-base font-normal text-muted">дн. подряд</span></p>
+          <p className="text-xs text-muted">Рекорд: {longest} дн. · Заморозок: {freezes}</p>
+        </div>
+        <div className="ml-auto hidden sm:flex gap-1">
+          {days.map((active, i) => (
+            <div key={i} className={cn("h-7 w-7 rounded-lg transition", active ? "bg-accent" : "bg-border")} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ScoreCard() {
   const { data: me } = useMe();
-  const target = me?.target_score ?? MOCK_SCORE.target;
+  const target = me?.target_score ?? 85;
+  const examDate = me?.exam_date;
+  const daysLeft = examDate
+    ? Math.max(0, Math.ceil((new Date(examDate).getTime() - Date.now()) / 86400000))
+    : null;
 
-  const green = MOCK_TOPICS.filter((t) => t.status === "green").length;
-  const yellow = MOCK_TOPICS.filter((t) => t.status === "yellow").length;
-  const red = MOCK_TOPICS.filter((t) => t.status === "red").length;
+  return (
+    <section className="rounded-3xl border border-border p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <TrendingUp className="h-5 w-5 text-muted" />
+        <span className="font-semibold">Прогноз балла</span>
+        {daysLeft !== null && (
+          <span className="ml-auto text-sm text-muted">до экзамена {daysLeft} дн.</span>
+        )}
+      </div>
+      <div className="space-y-3">
+        <div>
+          <div className="mb-1 flex justify-between text-xs text-muted"><span>Цель</span><span className="font-semibold text-fg">{target}</span></div>
+          <Bar value={target} max={100} className="bg-fg/40" />
+        </div>
+        <div>
+          <div className="mb-1 flex justify-between text-xs text-muted"><span>По плану занятий</span><span className="font-semibold text-success">83</span></div>
+          <Bar value={83} max={100} className="bg-success" />
+        </div>
+        <div>
+          <div className="mb-1 flex justify-between text-xs text-muted"><span>Если ничего не делать</span><span className="font-semibold text-danger">51</span></div>
+          <Bar value={51} max={100} className="bg-danger" />
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-muted">Прогноз примерный — уточнится после диагностики.</p>
+    </section>
+  );
+}
 
+function KnowledgeBaseCard() {
+  const router = useRouter();
+  const [count, setCount] = useState(0);
+  const [level, setLevel] = useState({ name: "Новичок", emoji: "🌱", nextAt: 10, count: 0 });
+
+  useEffect(() => {
+    const c = getKBCount();
+    setCount(c);
+    setLevel(getKBLevel());
+  }, []);
+
+  const progress = level.nextAt === Infinity ? 1 : (count - (level.count - count + count)) / (level.nextAt - 0);
+  const levelPct = level.nextAt === Infinity
+    ? 100
+    : Math.round(((count - getLevelMin(level.name)) / (level.nextAt - getLevelMin(level.name))) * 100);
+
+  function startReview() {
+    const ids = getKBTaskIds(20);
+    if (ids.length === 0) return;
+    const [first, ...rest] = ids;
+    const params = new URLSearchParams();
+    if (rest.length > 0) params.set("queue", rest.join(","));
+    params.set("total", String(ids.length));
+    params.set("all", ids.join(","));
+    router.push(`/task/${first}?${params.toString()}`);
+  }
+
+  return (
+    <section className="rounded-3xl border border-border overflow-hidden">
+      {/* Top gradient header */}
+      <div className="bg-gradient-to-br from-accent/20 to-accent/5 px-5 pt-5 pb-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/20 text-2xl">
+              {level.emoji}
+            </div>
+            <div>
+              <p className="text-xs text-muted font-medium uppercase tracking-wide">База знаний</p>
+              <p className="text-3xl font-bold leading-tight">{count}</p>
+              <p className="text-xs text-muted">задач освоено</p>
+            </div>
+          </div>
+          <span className="rounded-full bg-accent/20 px-3 py-1 text-xs font-semibold text-accent">
+            {level.name}
+          </span>
+        </div>
+
+        {/* Level progress */}
+        {level.nextAt !== Infinity && (
+          <div className="mt-4">
+            <div className="flex justify-between text-xs text-muted mb-1">
+              <span>{level.name}</span>
+              <span>{count} / {level.nextAt} до следующего уровня</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-accent/20 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-accent transition-all duration-700"
+                style={{ width: `${levelPct}%` }}
+              />
+            </div>
+          </div>
+        )}
+        {level.nextAt === Infinity && (
+          <p className="mt-3 text-xs text-accent font-medium">🏆 Максимальный уровень достигнут!</p>
+        )}
+      </div>
+
+      {/* Bottom actions */}
+      <div className="px-5 py-4 space-y-2">
+        <p className="text-xs text-muted leading-relaxed">
+          Здесь собраны все задачи, которые ты решил самостоятельно. Повторяй их, чтобы не забыть.
+        </p>
+        <button
+          onClick={startReview}
+          disabled={count === 0}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-fg text-bg py-3 text-sm font-semibold hover:opacity-90 transition disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Повторение — мать учения
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function getLevelMin(name: string): number {
+  const map: Record<string, number> = { "Новичок": 0, "Ученик": 10, "Знаток": 25, "Мастер": 50, "Эксперт": 100 };
+  return map[name] ?? 0;
+}
+
+function TopicMapCard() {
+  const { data: path, isLoading } = useSessionPath();
+
+  if (isLoading) {
+    return (
+      <section className="rounded-3xl border border-border p-5 space-y-3">
+        <div className="flex items-center gap-2 mb-2">
+          <BookOpen className="h-5 w-5 text-muted" />
+          <span className="font-semibold">Карта знаний</span>
+        </div>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-4 rounded-full bg-fg/8 animate-pulse" />
+        ))}
+      </section>
+    );
+  }
+
+  const sections = path?.sections ?? [];
+  const allNodes = sections.flatMap((s) => s.nodes);
+  const mastered = allNodes.filter((n) => n.correct_count >= 5).length;
+  const inProgress = allNodes.filter((n) => n.correct_count > 0 && n.correct_count < 5).length;
+  const notStarted = allNodes.filter((n) => n.correct_count === 0).length;
+
+  return (
+    <section className="rounded-3xl border border-border p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <Brain className="h-5 w-5 text-muted" />
+        <span className="font-semibold">Карта знаний</span>
+      </div>
+      <div className="flex gap-3 text-xs mb-5">
+        <span className="text-success font-medium">{mastered} освоено</span>
+        <span className="text-accent font-medium">{inProgress} в процессе</span>
+        <span className="text-muted">{notStarted} не начато</span>
+      </div>
+
+      <div className="space-y-5">
+        {sections.map((section) => {
+          const sectionMastered = section.nodes.filter((n) => n.correct_count >= 5).length;
+          const sectionTotal = section.nodes.length;
+          const pct = sectionTotal > 0 ? (sectionMastered / sectionTotal) * 100 : 0;
+          const color = DIFFICULTY_COLOR[section.difficulty] ?? "bg-accent";
+
+          return (
+            <div key={section.task_number}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-bg", color)}>
+                  {section.task_number}
+                </span>
+                <span className="text-sm font-medium flex-1 truncate">{section.title}</span>
+                <span className="text-xs text-muted tabular-nums">{sectionMastered}/{sectionTotal}</span>
+              </div>
+
+              {/* Section progress bar */}
+              <div className="relative h-1.5 rounded-full bg-border overflow-hidden mb-2">
+                <div className={cn("absolute inset-y-0 left-0 rounded-full transition-all duration-700", color)} style={{ width: `${pct}%` }} />
+              </div>
+
+              {/* Individual subtopics */}
+              <div className="space-y-1.5 pl-7">
+                {section.nodes.map((node) => {
+                  const mastery = Math.min(node.correct_count / 5, 1);
+                  const nodeColor = node.correct_count >= 5 ? "bg-success" : node.correct_count > 0 ? "bg-accent" : "bg-border";
+                  return (
+                    <div key={node.topic_id} className="flex items-center gap-2">
+                      <span className="text-[11px] text-muted w-6 shrink-0">{node.subtopic_number}</span>
+                      <span className="text-xs text-muted flex-1 truncate">{node.title}</span>
+                      <div className="w-16 h-1.5 rounded-full bg-border overflow-hidden">
+                        <div className={cn("h-full rounded-full transition-all duration-700", nodeColor)} style={{ width: `${mastery * 100}%` }} />
+                      </div>
+                      <span className="text-[10px] text-muted/60 w-6 text-right">{node.correct_count}/5</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {sections.length === 0 && (
+        <p className="text-sm text-muted text-center py-8">Начни решать задачи — здесь появится твоя карта знаний.</p>
+      )}
+    </section>
+  );
+}
+
+// ─── page ────────────────────────────────────────────────────────────────────
+
+export default function ProgressPage() {
   return (
     <>
       <AppNav />
-      <main className="mx-auto max-w-3xl space-y-6 px-6 py-10">
-        <h1 className="text-2xl font-bold tracking-tight">Прогресс</h1>
+      <main className="mx-auto max-w-3xl space-y-5 px-6 py-10">
+        <div className="flex items-center gap-3 mb-1">
+          <Zap className="h-6 w-6 text-accent" />
+          <h1 className="text-2xl font-bold tracking-tight">Прогресс</h1>
+        </div>
 
-        {/* Streak */}
-        <section className="flex items-center gap-4 rounded-3xl border border-border p-5">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-2xl font-bold text-accent-fg">
-            <Flame className="h-7 w-7" />
-          </div>
-          <div className="flex-1">
-            <div className="text-2xl font-bold">
-              {MOCK_STREAK}{" "}
-              <span className="text-base font-medium text-muted">
-                дней подряд
-              </span>
-            </div>
-            <div className="text-sm text-muted">
-              Заморозок: {MOCK_FREEZES} · Личный рекорд: 12
-            </div>
-          </div>
-          <div className="hidden gap-1 sm:flex">
-            {Array.from({ length: 7 }).map((_, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "h-8 w-8 rounded-lg",
-                  i < MOCK_STREAK ? "bg-accent" : "bg-border",
-                )}
-              />
-            ))}
-          </div>
-        </section>
-
-        {/* Score prediction */}
-        <section className="rounded-3xl border border-border p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-muted" />
-            <span className="font-semibold">Прогноз балла</span>
-            <span className="ml-auto text-sm text-muted">
-              до экзамена {MOCK_SCORE.days_left} дн.
-            </span>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <div className="mb-1 flex justify-between text-xs text-muted">
-                <span>Цель</span>
-                <span>{target}</span>
-              </div>
-              <ScoreBar value={target} max={100} color="bg-fg" />
-            </div>
-            <div>
-              <div className="mb-1 flex justify-between text-xs text-muted">
-                <span>По плану занятий</span>
-              </div>
-              <ScoreBar value={MOCK_SCORE.if_plan} max={100} color="bg-success" />
-            </div>
-            <div>
-              <div className="mb-1 flex justify-between text-xs text-muted">
-                <span>Если ничего не делать</span>
-              </div>
-              <ScoreBar value={MOCK_SCORE.if_nothing} max={100} color="bg-danger" />
-            </div>
-          </div>
-          <p className="mt-4 text-sm text-muted">
-            Сейчас ты на уровне{" "}
-            <span className="font-semibold text-fg">{MOCK_SCORE.current}</span>{" "}
-            баллов. Ещё{" "}
-            <span className="font-semibold text-fg">
-              {target - MOCK_SCORE.current}
-            </span>{" "}
-            до цели.
-          </p>
-        </section>
-
-        {/* Knowledge map */}
-        <section className="rounded-3xl border border-border p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-muted" />
-            <span className="font-semibold">Карта знаний</span>
-            <div className="ml-auto flex gap-2 text-xs">
-              <span className="text-success">{green} знаю</span>
-              <span className="text-yellow-500">{yellow} учу</span>
-              <span className="text-danger">{red} слабо</span>
-            </div>
-          </div>
-
-          <div className="space-y-2.5">
-            {MOCK_TOPICS.map((topic) => (
-              <div key={topic.title} className="flex items-center gap-3">
-                <div className="w-40 truncate text-sm">{topic.title}</div>
-                <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-border">
-                  <div
-                    className={cn(
-                      "absolute inset-y-0 left-0 rounded-full transition-all",
-                      STATUS_COLOR[topic.status],
-                    )}
-                    style={{ width: `${topic.mastery * 100}%` }}
-                  />
-                </div>
-                <span
-                  className={cn(
-                    "w-12 text-right text-xs font-medium",
-                    topic.status === "green" && "text-success",
-                    topic.status === "yellow" && "text-yellow-500",
-                    topic.status === "red" && "text-danger",
-                  )}
-                >
-                  {STATUS_LABEL[topic.status]}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <p className="text-center text-xs text-muted">
-          Данные обновятся после настоящей диагностики.
-        </p>
+        <StreakCard />
+        <ScoreCard />
+        <KnowledgeBaseCard />
+        <TopicMapCard />
       </main>
     </>
   );

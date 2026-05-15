@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, SkipForward, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, SkipForward, Loader2, ClipboardList, Clock, BarChart2 } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { Button } from "@/components/ui/button";
 import { MathText } from "@/components/math-text";
@@ -41,27 +41,32 @@ export default function DiagnosticPage() {
     ? "ОГЭ · Математика"
     : "ЕГЭ · Профильная математика";
 
+  const [phase, setPhase] = useState<"intro" | "loading" | "quiz">("intro");
   const [session, setSession] = useState<DiagnosticSession | null>(null);
-  const [loadingStart, setLoadingStart] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  function startDiagnostic() {
     if (!tokens) return;
+    setPhase("loading");
     api
       .post<DiagnosticSession>("/diagnostic/start", {})
       .then(({ data }) => {
         setSession(data);
-        setLoadingStart(false);
+        setPhase("quiz");
       })
-      .catch(() => setLoadingStart(false));
-  }, [tokens]);
+      .catch(() => {
+        setLoadError(true);
+        setPhase("intro");
+      });
+  }
 
   useEffect(() => {
-    if (!loadingStart) inputRef.current?.focus();
-  }, [current, loadingStart]);
+    if (phase === "quiz") inputRef.current?.focus();
+  }, [current, phase]);
 
   const tasks = session?.tasks ?? [];
   const task: Task | undefined = tasks[current];
@@ -100,13 +105,60 @@ export default function DiagnosticPage() {
     }
   }
 
-  if (loadingStart) {
+  if (phase === "intro" || phase === "loading") {
     return (
       <>
         <AppNav />
-        <main className="mx-auto max-w-md px-6 py-16 flex flex-col items-center gap-4 text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-accent" />
-          <p className="text-sm text-muted">Загружаем задания для диагностики…</p>
+        <main className="mx-auto flex min-h-[calc(100vh-56px)] max-w-md flex-col items-center justify-center px-6 py-12 text-center">
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-accent/15">
+            <ClipboardList className="h-10 w-10 text-accent" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Пробный тест</h1>
+          <p className="mt-3 text-sm text-muted leading-relaxed max-w-xs">
+            Пройди короткую диагностику — мы определим твой текущий уровень и составим
+            индивидуальный план подготовки.
+          </p>
+
+          <div className="mt-8 w-full space-y-3">
+            <div className="flex items-center gap-3 rounded-2xl border border-border px-4 py-3 text-left">
+              <ClipboardList className="h-5 w-5 shrink-0 text-accent" />
+              <div>
+                <p className="text-sm font-medium">12 заданий</p>
+                <p className="text-xs text-muted">Задания 1–12 из {examLabel}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-border px-4 py-3 text-left">
+              <Clock className="h-5 w-5 shrink-0 text-accent" />
+              <div>
+                <p className="text-sm font-medium">15–20 минут</p>
+                <p className="text-xs text-muted">Можно пропустить трудные задания</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-border px-4 py-3 text-left">
+              <BarChart2 className="h-5 w-5 shrink-0 text-accent" />
+              <div>
+                <p className="text-sm font-medium">Персональный план</p>
+                <p className="text-xs text-muted">AI составит маршрут по слабым темам</p>
+              </div>
+            </div>
+          </div>
+
+          {loadError && (
+            <p className="mt-4 text-sm text-danger">Не удалось загрузить задания. Попробуй ещё раз.</p>
+          )}
+
+          <Button
+            size="lg"
+            className="mt-8 w-full"
+            onClick={startDiagnostic}
+            disabled={phase === "loading"}
+          >
+            {phase === "loading" ? (
+              <><Loader2 className="h-4 w-4 animate-spin mr-2" />Загружаем задания…</>
+            ) : (
+              "Начать диагностику"
+            )}
+          </Button>
         </main>
       </>
     );

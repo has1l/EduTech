@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils";
 
 const schema = z.object({
   grade: z.union([z.literal(9), z.literal(11)]),
-  current_score: z.number().int().min(3).max(100),
   target_score: z.number().int().min(3).max(100),
   exam_year: z.number().int().min(2025).max(2030),
 });
@@ -111,7 +110,6 @@ export default function ProfilePage() {
     resolver: zodResolver(schema),
     values: {
       grade: (me?.grade === 9 ? 9 : 11) as 9 | 11,
-      current_score: me?.current_score ?? (isOge ? 3 : 50),
       target_score: me?.target_score ?? (isOge ? 4 : 80),
       exam_year: me?.exam_date ? parseInt(me.exam_date.slice(0, 4)) : currentYear,
     },
@@ -122,14 +120,12 @@ export default function ProfilePage() {
 
   function handleGradeChange(g: 9 | 11) {
     form.setValue("grade", g);
-    form.setValue("current_score", g === 9 ? 3 : 50);
     form.setValue("target_score", g === 9 ? 4 : 80);
   }
 
   const onSubmit = form.handleSubmit(async (v) => {
     await mutation.mutateAsync({
       grade: v.grade,
-      current_score: v.current_score,
       target_score: v.target_score,
       exam_date: `${v.exam_year}-06-01`,
     });
@@ -229,24 +225,6 @@ export default function ProfilePage() {
             })}
           </div>
         </div>
-
-        {/* Current score */}
-        <Controller
-          control={form.control}
-          name="current_score"
-          render={({ field }) => (
-            <div>
-              <span className="mb-2 block text-sm font-medium">
-                {formIsOge ? "Какая оценка сейчас?" : "Какой балл сейчас (примерно)?"}
-              </span>
-              {formIsOge ? (
-                <ScoreButtons value={field.value as 3 | 4 | 5} onChange={field.onChange} options={OGE_SCORES} />
-              ) : (
-                <ScoreButtons value={field.value as 30 | 50 | 70 | 85} onChange={field.onChange} options={EGE_CURRENT} cols={4} />
-              )}
-            </div>
-          )}
-        />
 
         {/* Target score */}
         <Controller

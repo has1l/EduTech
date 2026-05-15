@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BookOpen, ChevronLeft, Sparkles } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
@@ -28,7 +28,20 @@ type Phase = "question" | "submitting" | "correct" | "wrong" | "dialogue" | "giv
 type Message = { role: "user" | "assistant"; content: string };
 type TheoryRef = { title: string; section_id: string };
 
+interface SavedDialogue {
+  phase: Phase;
+  answer: string;
+  dialogueId: string | null;
+  messages: Message[];
+  theoryRef: TheoryRef | null;
+  giveUpResult: { correct_answer: string } | null;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+function dlgKey(taskId: string) {
+  return `dlg_${taskId}`;
+}
 
 export default function TaskPage() {
   const { id } = useParams<{ id: string }>();
@@ -47,24 +60,55 @@ export default function TaskPage() {
   const allIds = allParam ? allParam.split(",").filter(Boolean) : [];
   const solvedParam = searchParams.get("solved") ?? "";
   const failedParam = searchParams.get("failed") ?? "";
+  const aiParam = searchParams.get("ai") ?? "";
 
-  // State
+  // Restore dialogue from sessionStorage if returning to this task
+  const [saved] = useState<SavedDialogue | null>(() => {
+    try {
+      const raw = sessionStorage.getItem(dlgKey(id));
+      return raw ? (JSON.parse(raw) as SavedDialogue) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Session dot states (persisted in URL)
   const [solvedPositions, setSolvedPositions] = useState<Set<number>>(
     () => new Set(solvedParam.split(",").filter(Boolean).map(Number)),
   );
   const [failedPositions, setFailedPositions] = useState<Set<number>>(
     () => new Set(failedParam.split(",").filter(Boolean).map(Number)),
   );
-  const [answer, setAnswer] = useState("");
-  const [phase, setPhase] = useState<Phase>("question");
-  const [dialogueId, setDialogueId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [aiPositions, setAiPositions] = useState<Set<number>>(
+    () => new Set(aiParam.split(",").filter(Boolean).map(Number)),
+  );
+
+  // Dialogue state — restored from sessionStorage if available
+  const [phase, setPhase] = useState<Phase>(saved?.phase ?? "question");
+  const [answer, setAnswer] = useState(saved?.answer ?? "");
+  const [dialogueId, setDialogueId] = useState<string | null>(saved?.dialogueId ?? null);
+  const [messages, setMessages] = useState<Message[]>(saved?.messages ?? []);
+  const [theoryRef, setTheoryRef] = useState<TheoryRef | null>(saved?.theoryRef ?? null);
+  const [giveUpResult, setGiveUpResult] = useState<{ correct_answer: string } | null>(
+    saved?.giveUpResult ?? null,
+  );
   const [streaming, setStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
-  const [theoryRef, setTheoryRef] = useState<TheoryRef | null>(null);
   const [reply, setReply] = useState("");
-  const [giveUpResult, setGiveUpResult] = useState<{ correct_answer: string } | null>(null);
   const streamBuffer = useRef("");
+
+  // Persist dialogue state to sessionStorage
+  useEffect(() => {
+    if (phase === "question" || phase === "correct") {
+      sessionStorage.removeItem(dlgKey(id));
+      return;
+    }
+    if (phase === "submitting") return;
+    sessionStorage.setItem(
+      dlgKey(id),
+      JSON.stringify({ phase, answer, dialogueId, messages, theoryRef, giveUpResult }),
+    );
+  }, [id, phase, answer, dialogueId, messages, theoryRef, giveUpResult]);
 
   function buildSessionParams(overrideQueue?: string[]): URLSearchParams {
     const params = new URLSearchParams();
@@ -76,6 +120,8 @@ export default function TaskPage() {
     if (solved.length > 0) params.set("solved", solved.join(","));
     const failed = Array.from(failedPositions);
     if (failed.length > 0) params.set("failed", failed.join(","));
+    const ai = Array.from(aiPositions);
+    if (ai.length > 0) params.set("ai", ai.join(","));
     return params;
   }
 
@@ -176,6 +222,7 @@ export default function TaskPage() {
   function startDialogue() {
     if (!dialogueId) return;
     setPhase("dialogue");
+    setAiPositions((prev) => new Set([...Array.from(prev), currentPos]));
     startStream(dialogueId);
   }
 
@@ -193,6 +240,7 @@ export default function TaskPage() {
     const { data } = await api.post<{ correct_answer: string }>(`/dialogue/${dialogueId}/give-up`);
     setGiveUpResult(data);
     setPhase("giveup");
+    setAiPositions((prev) => new Set([...Array.from(prev), currentPos]));
     await startStream(dialogueId);
   }
 
@@ -233,7 +281,8 @@ export default function TaskPage() {
             {Array.from({ length: total }, (_, i) => {
               const pos = i + 1;
               const isSolved = solvedPositions.has(pos);
-              const isFailed = failedPositions.has(pos) && !isSolved;
+              const isAi = aiPositions.has(pos) && !isSolved;
+              const isFailed = failedPositions.has(pos) && !isSolved && !isAi;
               const isCurrent = pos === currentPos;
               const canNavigate = allIds.length > 0 && !isCurrent;
               return (
@@ -251,9 +300,11 @@ export default function TaskPage() {
                       ? "bg-fg text-bg cursor-default"
                       : isSolved
                         ? "bg-success/20 text-success border border-success/30 hover:opacity-80 cursor-pointer"
-                        : isFailed
-                          ? "bg-danger/20 text-danger border border-danger/30 hover:opacity-80 cursor-pointer"
-                          : "bg-fg/8 text-muted border border-border hover:bg-fg/15 cursor-pointer",
+                        : isAi
+                          ? "bg-accent/25 text-accent border border-accent/40 hover:opacity-80 cursor-pointer"
+                          : isFailed
+                            ? "bg-danger/20 text-danger border border-danger/30 hover:opacity-80 cursor-pointer"
+                            : "bg-fg/8 text-muted border border-border hover:bg-fg/15 cursor-pointer",
                   )}
                 >
                   {pos}

@@ -136,3 +136,12 @@ export type PlanOut = {
   needs_generation: boolean;
 };
 
+export type ScorePrediction = {
+  target: number;
+  by_plan: number;
+  if_nothing: number;
+  explanation: string;
+  max_possible: number;
+  is_oge: boolean;
+};
+

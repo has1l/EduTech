@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { useAuth } from "./auth";
-import type { BoosterItem, KBStats, PlanOut, SessionPath, Streak, Task, TodaySession, User } from "./types";
+import type { BoosterItem, KBStats, PlanOut, ScorePrediction, SessionPath, Streak, Task, TodaySession, User } from "./types";
 
 const ME_KEY = ["users", "me"] as const;
 
@@ -85,6 +85,19 @@ export function useStreak() {
     enabled: !!tokens,
     queryFn: async () => {
       const { data } = await api.get<Streak>("/streak");
+      return data;
+    },
+  });
+}
+
+export function useScorePrediction() {
+  const tokens = useAuth((s) => s.tokens);
+  return useQuery({
+    queryKey: ["progress", "score-prediction"],
+    enabled: !!tokens,
+    staleTime: 25 * 60 * 1000, // server caches 30 min
+    queryFn: async () => {
+      const { data } = await api.get<ScorePrediction>("/progress/score-prediction");
       return data;
     },
   });

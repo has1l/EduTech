@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { BookOpen, Brain, Flame, RotateCcw, TrendingUp, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
-import { useMe, useSessionPath, useStreak, useKBStats, useClearKB } from "@/lib/queries";
+import { useMe, useScorePrediction, useSessionPath, useStreak, useKBStats, useClearKB } from "@/lib/queries";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -52,11 +52,18 @@ function StreakCard() {
 
 function ScoreCard() {
   const { data: me } = useMe();
-  const target = me?.target_score ?? 85;
+  const { data: pred, isLoading } = useScorePrediction();
+
   const examDate = me?.exam_date;
   const daysLeft = examDate
     ? Math.max(0, Math.ceil((new Date(examDate).getTime() - Date.now()) / 86400000))
     : null;
+
+  const isOge = pred?.is_oge ?? false;
+  const maxPossible = pred?.max_possible ?? (isOge ? 5 : 70);
+  const target = pred?.target ?? (me?.target_score ?? (isOge ? 4 : 85));
+  const byPlan = pred?.by_plan ?? 0;
+  const ifNothing = pred?.if_nothing ?? 0;
 
   return (
     <section className="rounded-3xl border border-border p-5">
@@ -67,21 +74,50 @@ function ScoreCard() {
           <span className="ml-auto text-sm text-muted">до экзамена {daysLeft} дн.</span>
         )}
       </div>
-      <div className="space-y-3">
-        <div>
-          <div className="mb-1 flex justify-between text-xs text-muted"><span>Цель</span><span className="font-semibold text-fg">{target}</span></div>
-          <Bar value={target} max={100} className="bg-fg/40" />
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-7 rounded-xl bg-fg/8 animate-pulse" />
+          ))}
         </div>
-        <div>
-          <div className="mb-1 flex justify-between text-xs text-muted"><span>По плану занятий</span><span className="font-semibold text-success">83</span></div>
-          <Bar value={83} max={100} className="bg-success" />
-        </div>
-        <div>
-          <div className="mb-1 flex justify-between text-xs text-muted"><span>Если ничего не делать</span><span className="font-semibold text-danger">51</span></div>
-          <Bar value={51} max={100} className="bg-danger" />
-        </div>
-      </div>
-      <p className="mt-3 text-xs text-muted">Прогноз примерный — уточнится после диагностики.</p>
+      ) : (
+        <>
+          <div className="space-y-3">
+            <div>
+              <div className="mb-1 flex justify-between text-xs text-muted">
+                <span>Цель</span>
+                <span className="font-semibold text-fg">{isOge ? `Оценка ${target}` : target}</span>
+              </div>
+              <Bar value={target} max={maxPossible} className="bg-fg/40" />
+            </div>
+            <div>
+              <div className="mb-1 flex justify-between text-xs text-muted">
+                <span>По плану занятий</span>
+                <span className="font-semibold text-success">{isOge ? `Оценка ${byPlan}` : byPlan}</span>
+              </div>
+              <Bar value={byPlan} max={maxPossible} className="bg-success" />
+            </div>
+            <div>
+              <div className="mb-1 flex justify-between text-xs text-muted">
+                <span>Если ничего не делать</span>
+                <span className="font-semibold text-danger">{isOge ? `Оценка ${ifNothing}` : ifNothing}</span>
+              </div>
+              <Bar value={ifNothing} max={maxPossible} className="bg-danger" />
+            </div>
+          </div>
+
+          {pred?.explanation && (
+            <p className="mt-3 text-xs text-muted leading-relaxed">{pred.explanation}</p>
+          )}
+
+          {!isOge && (
+            <p className="mt-2 text-[11px] text-muted/60">
+              Прогноз по Части 1 (задания 1–12, максимум 70 баллов). Часть 2 не учитывается.
+            </p>
+          )}
+        </>
+      )}
     </section>
   );
 }

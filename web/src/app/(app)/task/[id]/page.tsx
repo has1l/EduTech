@@ -2,8 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, ChevronLeft } from "lucide-react";
-import Link from "next/link";
+import { BookOpen, ChevronLeft, Sparkles } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { MathText } from "@/components/math-text";
 import { Button } from "@/components/ui/button";
@@ -19,9 +18,17 @@ const DIFFICULTY_LABEL: Record<number, string> = {
   3: "Сложный",
 };
 
+const DIFFICULTY_COLOR: Record<number, string> = {
+  1: "bg-success/15 text-success",
+  2: "bg-accent/15 text-accent",
+  3: "bg-danger/15 text-danger",
+};
+
 type Phase = "question" | "submitting" | "correct" | "dialogue" | "giveup";
 type Message = { role: "user" | "assistant"; content: string };
 type TheoryRef = { title: string; section_id: string };
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export default function TaskPage() {
   const { id } = useParams<{ id: string }>();
@@ -32,16 +39,20 @@ export default function TaskPage() {
 
   const queueParam = searchParams.get("queue") ?? "";
   const queue = queueParam ? queueParam.split(",").filter(Boolean) : [];
-  const totalInSession = queue.length + 1;
+  const totalParam = searchParams.get("total");
+  const total = totalParam ? parseInt(totalParam) : queue.length + 1;
+  const currentPos = total - queue.length;
 
   function goNext() {
     if (queue.length === 0) {
-      goNext();
-    } else {
-      const [next, ...rest] = queue;
-      const url = rest.length > 0 ? `/task/${next}?queue=${rest.join(",")}` : `/task/${next}`;
-      router.push(url);
+      router.replace("/today");
+      return;
     }
+    const [next, ...rest] = queue;
+    const params = new URLSearchParams();
+    if (rest.length > 0) params.set("queue", rest.join(","));
+    params.set("total", String(total));
+    router.push(`/task/${next}?${params.toString()}`);
   }
 
   const [answer, setAnswer] = useState("");
@@ -52,12 +63,8 @@ export default function TaskPage() {
   const [streamingText, setStreamingText] = useState("");
   const [theoryRef, setTheoryRef] = useState<TheoryRef | null>(null);
   const [reply, setReply] = useState("");
-  const [giveUpResult, setGiveUpResult] = useState<{
-    correct_answer: string;
-  } | null>(null);
+  const [giveUpResult, setGiveUpResult] = useState<{ correct_answer: string } | null>(null);
   const streamBuffer = useRef("");
-
-  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
   async function startStream(dId: string) {
     if (!tokens) return;
@@ -65,10 +72,8 @@ export default function TaskPage() {
     streamBuffer.current = "";
     setStreamingText("");
 
-    const streamUrl = `${API_URL}/dialogue/${dId}/stream`;
-
     try {
-      const res = await fetch(streamUrl, {
+      const res = await fetch(`${API_URL}/dialogue/${dId}/stream`, {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
 
@@ -94,22 +99,16 @@ export default function TaskPage() {
           const dataStr = block.match(/^data: (.*)$/m)?.[1]?.trim() ?? "";
 
           if (evName === "token") {
-            const text = JSON.parse(dataStr) as string;
-            streamBuffer.current += text;
+            streamBuffer.current += JSON.parse(dataStr) as string;
             setStreamingText(streamBuffer.current);
           } else if (evName === "meta") {
-            const meta = JSON.parse(dataStr) as {
-              theory_ref: TheoryRef | null;
-            };
+            const meta = JSON.parse(dataStr) as { theory_ref: TheoryRef | null };
             if (meta.theory_ref) setTheoryRef(meta.theory_ref);
           } else if (evName === "done") {
             const finalText = streamBuffer.current;
             streamBuffer.current = "";
             setStreamingText("");
-            setMessages((prev) => [
-              ...prev,
-              { role: "assistant", content: finalText },
-            ]);
+            setMessages((prev) => [...prev, { role: "assistant", content: finalText }]);
             setStreaming(false);
           } else if (evName === "error") {
             setStreaming(false);
@@ -163,48 +162,90 @@ export default function TaskPage() {
     return (
       <>
         <AppNav />
-        <main className="mx-auto max-w-2xl px-6 py-10">
+        <main className="mx-auto max-w-2xl px-4 py-6 space-y-4">
           <div className="h-8 w-48 rounded-xl bg-fg/5 animate-pulse" />
-          <div className="mt-6 h-32 rounded-3xl border border-border animate-pulse bg-fg/5" />
+          <div className="h-32 rounded-2xl border border-border animate-pulse bg-fg/5" />
         </main>
       </>
     );
   }
 
+  const inSession = total > 1;
+  const assistantTurns = messages.filter((m) => m.role === "assistant").length;
+  const canGoNext =
+    !streaming &&
+    (phase === "correct" ||
+      phase === "giveup" ||
+      (phase === "dialogue" && assistantTurns >= 3));
+
   return (
     <>
       <AppNav />
-      <main className="mx-auto max-w-2xl space-y-5 px-6 py-10">
-        {/* Header */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Link href="/session" className="text-muted transition hover:text-fg">
-              <ChevronLeft className="h-5 w-5" />
-            </Link>
-            <span className="text-sm text-muted flex-1">{DIFFICULTY_LABEL[task.difficulty]}</span>
-            {totalInSession > 1 && (
-              <span className="text-xs text-muted tabular-nums">
-                {totalInSession - queue.length} / {totalInSession}
-              </span>
-            )}
+      <main className="mx-auto max-w-2xl px-4 py-6 space-y-5">
+
+        {/* Task dots navigation */}
+        {inSession && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+            <button
+              onClick={() => router.back()}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted hover:bg-fg/5 transition"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {Array.from({ length: total }, (_, i) => {
+              const pos = i + 1;
+              const isDone = pos < currentPos;
+              const isCurrent = pos === currentPos;
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                    isCurrent
+                      ? "bg-fg text-bg"
+                      : isDone
+                        ? "bg-success/20 text-success border border-success/30"
+                        : "bg-fg/8 text-muted border border-border",
+                  )}
+                >
+                  {pos}
+                </div>
+              );
+            })}
           </div>
-          {totalInSession > 1 && (
-            <div className="h-1.5 w-full rounded-full bg-fg/10">
-              <div
-                className="h-full rounded-full bg-accent transition-all duration-300"
-                style={{ width: `${((totalInSession - queue.length) / totalInSession) * 100}%` }}
-              />
-            </div>
+        )}
+
+        {/* Task header */}
+        <div className="flex items-center gap-3">
+          {!inSession && (
+            <button onClick={() => router.back()} className="text-muted hover:text-fg transition">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
           )}
+          <h1 className="text-2xl font-bold flex-1">
+            {inSession ? `Задание ${currentPos}` : "Задача"}
+          </h1>
+          <span
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium shrink-0",
+              DIFFICULTY_COLOR[task.difficulty] ?? "bg-fg/10 text-muted",
+            )}
+          >
+            {DIFFICULTY_LABEL[task.difficulty] ?? "—"}
+          </span>
         </div>
 
-        {/* Question */}
-        <section className="rounded-3xl border border-border p-6 space-y-4">
-          {task.question_text && !(task.question_image_url && (task.question_text.endsWith("...") || task.question_text.endsWith("…"))) && (
-            <p className="text-base leading-relaxed whitespace-pre-wrap">
-              <MathText text={task.question_text} />
-            </p>
-          )}
+        {/* Task content */}
+        <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+          {task.question_text &&
+            !(
+              task.question_image_url &&
+              (task.question_text.endsWith("...") || task.question_text.endsWith("…"))
+            ) && (
+              <p className="text-base leading-relaxed whitespace-pre-wrap">
+                <MathText text={task.question_text} />
+              </p>
+            )}
           {task.question_image_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -218,136 +259,158 @@ export default function TaskPage() {
               className="w-full rounded-xl"
             />
           )}
-        </section>
+        </div>
 
         {/* Answer input */}
-        {phase === "question" && (
-          <section className="flex gap-2">
+        {(phase === "question" || phase === "submitting") && (
+          <div className="flex gap-2">
             <input
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitAnswer()}
               placeholder="Введи ответ..."
-              className="flex-1 rounded-2xl border border-border bg-transparent px-4 py-3 text-sm outline-none transition focus:border-fg/40"
+              disabled={phase === "submitting"}
+              className="flex-1 rounded-2xl border border-border bg-transparent px-4 py-3 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
             />
-            <Button size="lg" onClick={submitAnswer} disabled={!answer.trim()}>
-              →
+            <Button
+              size="lg"
+              onClick={submitAnswer}
+              disabled={!answer.trim() || phase === "submitting"}
+              className="shrink-0"
+            >
+              {phase === "submitting" ? "..." : "Проверить"}
             </Button>
-          </section>
-        )}
-
-        {/* Wrong answer highlight */}
-        {phase === "dialogue" && answer && (
-          <div className="rounded-2xl border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger">
-            Твой ответ: <span className="font-semibold">{answer}</span> — неверно
           </div>
         )}
 
-        {phase === "submitting" && (
-          <p className="text-center text-sm text-muted">Проверяем...</p>
-        )}
-
-        {/* Correct */}
-        {phase === "correct" && (
-          <section className="rounded-3xl border border-success/40 bg-success/10 p-5 text-center">
-            <p className="text-lg font-bold text-success">Верно!</p>
-            <p className="mt-1 text-sm text-muted">Отличная работа</p>
-            <Button className="mt-4" onClick={() => goNext()}>
-              Следующее задание
-            </Button>
-          </section>
-        )}
-
-        {/* AI Dialogue */}
-        {(phase === "dialogue" || phase === "giveup") && (
-          <section className="space-y-3">
-            {/* Chat bubbles */}
-            <div className="rounded-3xl border border-border p-4 space-y-3 bg-fg/[0.015]">
-              {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "rounded-2xl px-4 py-3 text-sm leading-relaxed",
-                    msg.role === "assistant"
-                      ? "bg-accent/15 border border-accent/20"
-                      : "bg-border/60 ml-10",
-                  )}
-                >
-                  <MathText text={msg.content} />
-                </div>
-              ))}
-
-              {streaming && (
-                <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-accent/15 border border-accent/20">
-                  {streamingText
-                    ? <><MathText text={streamingText} /><span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-fg/60" /></>
-                    : <span className="text-muted">AI думает...</span>
-                  }
-                </div>
-              )}
+        {/* AI tutor section */}
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/20 shrink-0">
+              <Sparkles className="h-4 w-4 text-accent" />
             </div>
+            <span className="text-sm font-semibold">AI-репетитор</span>
+          </div>
 
-            {/* Theory ref */}
-            {theoryRef && (
-              <div className="flex items-center gap-2 rounded-2xl border border-border px-4 py-3 text-sm">
-                <BookOpen className="h-4 w-4 shrink-0 text-muted" />
-                <span className="text-muted">Теория:</span>
-                <span className="font-medium">{theoryRef.title}</span>
-              </div>
-            )}
+          <div className="p-4 space-y-3">
 
-            {/* Give-up: correct answer banner */}
-            {phase === "giveup" && giveUpResult && (
-              <div className="rounded-2xl border border-success/40 bg-success/10 px-4 py-3 text-sm">
-                Правильный ответ:{" "}
-                <span className="font-semibold text-success">{giveUpResult.correct_answer}</span>
-              </div>
-            )}
-
-            {/* Reply input */}
-            {(phase === "dialogue" || phase === "giveup") && !streaming && messages.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && !e.shiftKey && sendReply()
-                    }
-                    placeholder="Напиши свой ответ..."
-                    className="flex-1 rounded-2xl border border-border bg-transparent px-4 py-3 text-sm outline-none transition focus:border-fg/40"
-                  />
-                  <Button onClick={sendReply} disabled={!reply.trim()}>
-                    →
-                  </Button>
-                </div>
-                {phase === "dialogue" && (
+            {(phase === "question" || phase === "submitting") && (
+              <>
+                <p className="text-sm text-muted leading-relaxed">
+                  Попробуй решить задачу самостоятельно. Если ошибёшься — разберём вместе, шаг за шагом.
+                </p>
+                <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={giveUp}
-                    className="text-xs text-muted underline underline-offset-2 transition hover:text-fg"
+                    onClick={goNext}
+                    className="rounded-full border border-border px-4 py-2 text-sm text-muted hover:bg-fg/5 transition"
                   >
-                    Объяснить сразу
+                    К следующему →
                   </button>
-                )}
-              </div>
+                </div>
+              </>
             )}
 
-            {/* Go to next: after 3 AI turns in dialogue, or always in giveup */}
-            {!streaming && (
-              (phase === "giveup" ||
-                (phase === "dialogue" &&
-                  messages.filter((m) => m.role === "assistant").length >= 3))
-            ) && (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => goNext()}
-              >
-                Следующее задание
-              </Button>
+            {phase === "correct" && (
+              <>
+                <p className="text-sm font-medium text-success">Правильно! Отличная работа.</p>
+                <button
+                  onClick={goNext}
+                  className="rounded-full bg-fg text-bg px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition"
+                >
+                  К следующему заданию →
+                </button>
+              </>
             )}
-          </section>
-        )}
+
+            {(phase === "dialogue" || phase === "giveup") && (
+              <>
+                {answer && (
+                  <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
+                    Твой ответ: <span className="font-semibold">{answer}</span> — неверно
+                  </div>
+                )}
+
+                {phase === "giveup" && giveUpResult && (
+                  <div className="rounded-xl border border-success/30 bg-success/10 px-3 py-2.5 text-sm">
+                    Правильный ответ:{" "}
+                    <span className="font-semibold text-success">{giveUpResult.correct_answer}</span>
+                  </div>
+                )}
+
+                {messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "rounded-xl px-4 py-3 text-sm leading-relaxed",
+                      msg.role === "assistant"
+                        ? "bg-accent/10 border border-accent/15"
+                        : "bg-fg/5 ml-8",
+                    )}
+                  >
+                    <MathText text={msg.content} />
+                  </div>
+                ))}
+
+                {streaming && (
+                  <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-accent/10 border border-accent/15">
+                    {streamingText ? (
+                      <>
+                        <MathText text={streamingText} />
+                        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-fg/60" />
+                      </>
+                    ) : (
+                      <span className="text-muted">AI думает...</span>
+                    )}
+                  </div>
+                )}
+
+                {theoryRef && (
+                  <div className="flex items-center gap-2 rounded-xl border border-border px-3 py-2.5 text-sm">
+                    <BookOpen className="h-4 w-4 shrink-0 text-muted" />
+                    <span className="text-muted">Теория:</span>
+                    <span className="font-medium">{theoryRef.title}</span>
+                  </div>
+                )}
+
+                {!streaming && messages.length > 0 && (
+                  <div className="flex gap-2">
+                    <input
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendReply()}
+                      placeholder="Напиши ответ..."
+                      className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    />
+                    <Button onClick={sendReply} disabled={!reply.trim()}>→</Button>
+                  </div>
+                )}
+
+                {!streaming && (
+                  <div className="flex flex-wrap gap-2">
+                    {phase === "dialogue" && (
+                      <button
+                        onClick={giveUp}
+                        className="rounded-full border border-border px-4 py-2 text-sm text-muted hover:bg-fg/5 transition"
+                      >
+                        Объяснить сразу
+                      </button>
+                    )}
+                    {canGoNext && (
+                      <button
+                        onClick={goNext}
+                        className="rounded-full bg-fg text-bg px-5 py-2 text-sm font-semibold hover:opacity-90 transition"
+                      >
+                        К следующему заданию →
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+          </div>
+        </div>
+
       </main>
     </>
   );

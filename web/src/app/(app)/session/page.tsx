@@ -179,9 +179,10 @@ export default function SessionPage() {
         `/tasks/subtopic-session?topic_id=${node.topic_id}&count=5`,
       );
       const [first, ...rest] = session.tasks;
-      const queue = rest.map((t) => t.id).join(",");
-      const url = queue ? `/task/${first.id}?queue=${queue}` : `/task/${first.id}`;
-      router.push(url);
+      const params = new URLSearchParams();
+      if (rest.length > 0) params.set("queue", rest.map((t) => t.id).join(","));
+      params.set("total", String(session.tasks.length));
+      router.push(`/task/${first.id}?${params.toString()}`);
     } catch {
       setLoadingNode(null);
     }

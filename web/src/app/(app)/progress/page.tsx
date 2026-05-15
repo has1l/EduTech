@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { BookOpen, Brain, Flame, RotateCcw, TrendingUp, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { useMe, useSessionPath, useStreak } from "@/lib/queries";
-import { getKBCount, getKBLevel, getKBTaskIds, clearKB } from "@/lib/knowledge-base";
+import { getKBCount, getKBLevel, clearKB } from "@/lib/knowledge-base";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -89,40 +88,36 @@ function ScoreCard() {
 }
 
 function KnowledgeBaseCard() {
-  const router = useRouter();
+  const { data: path } = useSessionPath();
   const [count, setCount] = useState(0);
   const [level, setLevel] = useState({ name: "Новичок", emoji: "🌱", nextAt: 10, count: 0 });
+  const [resetting, setResetting] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
 
   useEffect(() => {
-    const c = getKBCount();
-    setCount(c);
+    setCount(getKBCount());
     setLevel(getKBLevel());
   }, []);
+
+  const allNodes = (path?.sections ?? []).flatMap((s) => s.nodes);
+  const allCompleted = allNodes.length > 0 && allNodes.every((n) => n.correct_count >= 5);
 
   const levelPct = level.nextAt === Infinity
     ? 100
     : Math.round(((count - getLevelMin(level.name)) / (level.nextAt - getLevelMin(level.name))) * 100);
 
-  const [starting, setStarting] = useState(false);
-
-  async function startReview() {
-    const ids = getKBTaskIds(20);
-    if (ids.length === 0) return;
-    setStarting(true);
+  async function handleReset() {
+    if (!allCompleted) return;
+    setResetting(true);
+    setResetDone(false);
     try {
       await api.post("/sessions/reset-path", {});
     } catch { /* ignore */ }
     clearKB();
     setCount(0);
     setLevel(getKBLevel());
-    const [first, ...rest] = ids;
-    const params = new URLSearchParams();
-    if (rest.length > 0) params.set("queue", rest.join(","));
-    params.set("total", String(ids.length));
-    params.set("all", ids.join(","));
-    params.set("review", "1");
-    router.push(`/task/${first}?${params.toString()}`);
-    setStarting(false);
+    setResetDone(true);
+    setResetting(false);
   }
 
   return (
@@ -171,16 +166,26 @@ function KnowledgeBaseCard() {
           Здесь собраны все задачи, которые ты решил самостоятельно. Повторяй их, чтобы не забыть.
         </p>
         <button
-          onClick={startReview}
-          disabled={count === 0 || starting}
+          onClick={handleReset}
+          disabled={!allCompleted || resetting}
           className="w-full flex items-center justify-center gap-2 rounded-2xl bg-fg text-bg py-3 text-sm font-semibold hover:opacity-90 transition disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <RotateCcw className={cn("h-4 w-4", starting && "animate-spin")} />
-          {starting ? "Подготовка..." : "Повторение — мать учения"}
+          <RotateCcw className={cn("h-4 w-4", resetting && "animate-spin")} />
+          {resetting ? "Сброс..." : "Повторение — мать учения"}
         </button>
-        {count > 0 && (
+        {resetDone && (
+          <p className="text-[11px] text-success text-center font-medium">
+            Прогресс сброшен — все подтипы снова доступны в пути
+          </p>
+        )}
+        {!resetDone && !allCompleted && allNodes.length > 0 && (
           <p className="text-[11px] text-muted text-center">
-            Сбросит прогресс подтипов и откроет все уровни заново
+            Пройди все подтипы в пути, чтобы разблокировать сброс
+          </p>
+        )}
+        {!resetDone && allCompleted && (
+          <p className="text-[11px] text-muted text-center">
+            Сбросит прогресс подтипов — можно начать заново
           </p>
         )}
       </div>

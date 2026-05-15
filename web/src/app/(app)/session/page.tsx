@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Zap, Star, Lock, CheckCircle2 } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
@@ -158,6 +158,8 @@ function Connector({ fromOffset, toOffset }: { fromOffset: number; toOffset: num
 
 export default function SessionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isUnlocked = searchParams.get("unlocked") === "1";
   const tokens = useAuth((s) => s.tokens);
   const { data: me } = useMe();
   const { data: path, isLoading } = useSessionPath();
@@ -251,7 +253,7 @@ export default function SessionPage() {
                       return (
                         <div key={node.topic_id} className="flex flex-col items-center w-full">
                           <PathNodeItem
-                            node={node}
+                            node={isUnlocked ? { ...node, state: node.state === "locked" ? "current" : node.state } : node}
                             offset={offset}
                             onTap={handleNodeTap}
                             loading={loadingNode === node.topic_id}

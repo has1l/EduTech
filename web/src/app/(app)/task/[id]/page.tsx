@@ -161,7 +161,7 @@ export default function TaskPage() {
         }
       });
     }
-    router.replace(isBooster ? "/booster" : isReview ? "/progress" : "/session");
+    router.replace(isBooster ? "/booster" : isReview ? "/session?unlocked=1" : "/session");
   }
 
   async function handleAddMore() {

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { BookOpen, Brain, Flame, RotateCcw, TrendingUp, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { useMe, useSessionPath, useStreak } from "@/lib/queries";
-import { getKBCount, getKBLevel, getKBTaskIds } from "@/lib/knowledge-base";
+import { getKBCount, getKBLevel, getKBTaskIds, clearKB } from "@/lib/knowledge-base";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -102,9 +103,18 @@ function KnowledgeBaseCard() {
     ? 100
     : Math.round(((count - getLevelMin(level.name)) / (level.nextAt - getLevelMin(level.name))) * 100);
 
-  function startReview() {
+  const [starting, setStarting] = useState(false);
+
+  async function startReview() {
     const ids = getKBTaskIds(20);
     if (ids.length === 0) return;
+    setStarting(true);
+    try {
+      await api.post("/sessions/reset-path", {});
+    } catch { /* ignore */ }
+    clearKB();
+    setCount(0);
+    setLevel(getKBLevel());
     const [first, ...rest] = ids;
     const params = new URLSearchParams();
     if (rest.length > 0) params.set("queue", rest.join(","));
@@ -112,6 +122,7 @@ function KnowledgeBaseCard() {
     params.set("all", ids.join(","));
     params.set("review", "1");
     router.push(`/task/${first}?${params.toString()}`);
+    setStarting(false);
   }
 
   return (
@@ -161,12 +172,17 @@ function KnowledgeBaseCard() {
         </p>
         <button
           onClick={startReview}
-          disabled={count === 0}
+          disabled={count === 0 || starting}
           className="w-full flex items-center justify-center gap-2 rounded-2xl bg-fg text-bg py-3 text-sm font-semibold hover:opacity-90 transition disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <RotateCcw className="h-4 w-4" />
-          Повторение — мать учения
+          <RotateCcw className={cn("h-4 w-4", starting && "animate-spin")} />
+          {starting ? "Подготовка..." : "Повторение — мать учения"}
         </button>
+        {count > 0 && (
+          <p className="text-[11px] text-muted text-center">
+            Сбросит прогресс подтипов и откроет все уровни заново
+          </p>
+        )}
       </div>
     </section>
   );

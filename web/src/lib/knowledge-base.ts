@@ -39,6 +39,10 @@ export function getKBTaskIds(limit = 20): string[] {
   return items.slice(0, limit).map((i) => i.taskId);
 }
 
+export function clearKB() {
+  localStorage.removeItem(KEY);
+}
+
 export function getKBLevel() {
   const count = getKBCount();
   const level = [...LEVELS].reverse().find((l) => count >= l.min) ?? LEVELS[0];

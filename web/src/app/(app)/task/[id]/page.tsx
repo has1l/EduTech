@@ -385,10 +385,10 @@ export default function TaskPage() {
             <button
               onClick={finishSession}
               className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold transition",
+                "rounded-full px-4 py-1.5 text-xs font-semibold transition border",
                 thresholdReached
-                  ? "bg-success/20 text-success hover:bg-success/30"
-                  : "border border-border text-muted hover:bg-fg/5",
+                  ? "bg-success text-white border-success hover:opacity-90"
+                  : "bg-bg border-border text-muted hover:bg-fg/5",
               )}
             >
               Завершить

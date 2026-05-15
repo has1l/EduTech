@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, ChevronLeft, Plus, Sparkles } from "lucide-react";
+import { BookOpen, ChevronLeft, Plus } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { MathText } from "@/components/math-text";
 import { Button } from "@/components/ui/button";
@@ -502,9 +502,16 @@ export default function TaskPage() {
         {/* AI tutor section */}
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/20 shrink-0">
-              <Sparkles className="h-4 w-4 text-accent" />
-            </div>
+            <video
+              key={streaming && !streamingText ? "thinking" : "idle"}
+              src={streaming && !streamingText ? "/mascot/thinking.mp4" : "/mascot/idle.mp4"}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="h-9 w-9 shrink-0 rounded-full object-cover"
+              style={{ mixBlendMode: "multiply" }}
+            />
             <span className="text-sm font-semibold">AI-репетитор</span>
           </div>
 

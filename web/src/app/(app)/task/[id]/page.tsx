@@ -147,9 +147,6 @@ export default function TaskPage() {
         addToBooster({ taskId: id, topicId: task.topic_id, reason: "ai", questionPreview: preview });
       }
     }
-    if (isBooster && phase === "correct") {
-      removeFromBooster(id);
-    }
     if (queue.length === 0) {
       router.replace(isBooster ? "/booster" : "/today");
       return;
@@ -251,7 +248,7 @@ export default function TaskPage() {
       if (data.correct) {
         setPhase("correct");
         setSolvedPositions((prev) => new Set([...Array.from(prev), currentPos]));
-        if (isBooster) removeFromBooster(id);
+        removeFromBooster(id);
       } else if (data.dialogue_id) {
         setDialogueId(data.dialogue_id);
         setPhase("wrong");

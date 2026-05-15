@@ -174,8 +174,6 @@ function KnowledgeBaseCard() {
   );
 }
 
-}
-
 function TopicMapCard() {
   const { data: path, isLoading } = useSessionPath();
 

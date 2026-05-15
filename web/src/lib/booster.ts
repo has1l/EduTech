@@ -29,6 +29,11 @@ export function removeFromBooster(taskId: string) {
   localStorage.setItem(KEY, JSON.stringify(items));
 }
 
+export function updateBoosterReason(taskId: string, reason: BoosterItem["reason"]) {
+  const items = getBooster().map((i) => i.taskId === taskId ? { ...i, reason } : i);
+  localStorage.setItem(KEY, JSON.stringify(items));
+}
+
 export function getBoosterCount(): number {
   return getBooster().length;
 }

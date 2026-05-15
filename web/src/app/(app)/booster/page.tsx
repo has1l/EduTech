@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useSessionPath, useTask } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { getBooster, removeFromBooster, type BoosterItem } from "@/lib/booster";
+import { getBooster, removeFromBooster, updateBoosterReason, type BoosterItem } from "@/lib/booster";
 import { cn } from "@/lib/utils";
 import type { AnswerResult } from "@/lib/types";
 
@@ -29,9 +29,11 @@ type TheoryRef = { title: string; section_id: string };
 function InlineTaskSolver({
   item,
   onSolved,
+  onNext,
 }: {
   item: BoosterItem;
   onSolved: () => void;
+  onNext: () => void;
 }) {
   const { data: task, isLoading } = useTask(item.taskId);
   const tokens = useAuth((s) => s.tokens);
@@ -132,6 +134,7 @@ function InlineTaskSolver({
     const { data } = await api.post<{ correct_answer: string }>(`/dialogue/${dialogueId}/give-up`);
     setGiveUpResult(data);
     setPhase("giveup");
+    updateBoosterReason(item.taskId, "ai");
     await startStream(dialogueId);
   }
 
@@ -245,7 +248,7 @@ function InlineTaskSolver({
               <p className="text-sm font-medium text-success">Правильно! Задание убрано из бустера.</p>
               <button
                 onClick={onSolved}
-                className="rounded-full bg-fg text-bg px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition"
+                className="rounded-full bg-success/20 text-success px-5 py-2.5 text-sm font-semibold hover:opacity-90 transition"
               >
                 Следующее →
               </button>
@@ -312,7 +315,7 @@ function InlineTaskSolver({
                     </button>
                   )}
                   {canGoNext && (
-                    <button onClick={onSolved} className="rounded-full bg-fg text-bg px-5 py-2 text-sm font-semibold hover:opacity-90 transition">
+                    <button onClick={onNext} className="rounded-full bg-fg text-bg px-5 py-2 text-sm font-semibold hover:opacity-90 transition">
                       Следующее →
                     </button>
                   )}
@@ -349,6 +352,16 @@ export default function BoosterPage() {
       setSelectedId(nextItem?.taskId ?? null);
       return next;
     });
+  }
+
+  function handleNext() {
+    const idx = items.findIndex((i) => i.taskId === selectedId);
+    const nextItem = items[idx + 1] ?? items[idx - 1] ?? items[0] ?? null;
+    if (nextItem && nextItem.taskId !== selectedId) {
+      setSelectedId(nextItem.taskId);
+    }
+    // refresh list to reflect updated reason tag
+    setItems(getBooster());
   }
 
   const topicMeta = useMemo(() => {
@@ -433,7 +446,7 @@ export default function BoosterPage() {
             {/* Left — inline task solver */}
             <main className="flex-1 overflow-y-auto">
               {selectedItem ? (
-                <InlineTaskSolver key={selectedItem.taskId} item={selectedItem} onSolved={handleSolved} />
+                <InlineTaskSolver key={selectedItem.taskId} item={selectedItem} onSolved={handleSolved} onNext={handleNext} />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted text-sm">
                   Выбери задание справа

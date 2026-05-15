@@ -186,7 +186,7 @@ async def get_score_prediction(user: CurrentUser, db: DbSession, redis: RedisCli
         max_possible=5 if is_oge else 70,
         is_oge=is_oge,
     )
-    await redis.set(cache_key, result.model_dump_json(), ex=1800)
+    await redis.set(cache_key, result.model_dump_json(), ex=86400)
     return result
 
 

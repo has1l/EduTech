@@ -95,7 +95,7 @@ export function useScorePrediction() {
   return useQuery({
     queryKey: ["progress", "score-prediction"],
     enabled: !!tokens,
-    staleTime: 25 * 60 * 1000, // server caches 30 min
+    staleTime: 23 * 60 * 60 * 1000, // server caches 24h
     queryFn: async () => {
       const { data } = await api.get<ScorePrediction>("/progress/score-prediction");
       return data;

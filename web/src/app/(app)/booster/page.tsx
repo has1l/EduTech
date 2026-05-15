@@ -66,7 +66,7 @@ function TaskPanel({ item, onRemove }: { item: BoosterItem; onRemove: () => void
                 : `${API_URL}/tasks/image-proxy?url=${encodeURIComponent(task.question_image_url)}`
             }
             alt="Рисунок к задаче"
-            className="w-full rounded-xl"
+            className="max-h-52 w-auto rounded-xl object-contain"
           />
         )}
       </div>

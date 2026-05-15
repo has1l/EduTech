@@ -15,6 +15,8 @@ import { addToBooster, removeFromBooster } from "@/lib/booster";
 import { addToKB } from "@/lib/knowledge-base";
 import type { AnswerResult, SubtopicSession } from "@/lib/types";
 
+const THRESHOLD = 5;
+
 const DIFFICULTY_LABEL: Record<number, string> = {
   1: "Лёгкий",
   2: "Средний",
@@ -258,13 +260,13 @@ export default function TaskPage() {
       });
       if (data.correct) {
         setPhase("correct");
+        const newSolvedSize = solvedPositions.has(currentPos)
+          ? solvedPositions.size
+          : solvedPositions.size + 1;
         setSolvedPositions((prev) => new Set([...Array.from(prev), currentPos]));
         removeFromBooster(id);
         addToKB(id, task.topic_id);
-        const cached = queryClient.getQueryData<{ current_streak: number; last_session_date: string | null }>(["streak"]);
-        const today = new Date().toISOString().slice(0, 10);
-        const isNewDay = cached?.last_session_date !== today;
-        if (isNewDay) {
+        if (newSolvedSize === THRESHOLD) {
           api.post<{ current_streak: number }>("/streak/record", {}).then(({ data: s }) => {
             queryClient.invalidateQueries({ queryKey: ["streak"] });
             setStreakFlash(s.current_streak);
@@ -323,7 +325,6 @@ export default function TaskPage() {
 
   const inSession = total > 1;
   const selfSolvedCount = solvedPositions.size;
-  const THRESHOLD = 5;
   const thresholdReached = selfSolvedCount >= THRESHOLD;
   const assistantTurns = messages.filter((m) => m.role === "assistant").length;
   const canGoNext =

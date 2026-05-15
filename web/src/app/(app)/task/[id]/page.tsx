@@ -595,7 +595,7 @@ export default function TaskPage() {
                 {streaming && (
                   <div className="flex items-start gap-2">
                     <video
-                      src="/mascot/idle.mp4"
+                      src={streamingText ? "/mascot/idle.mp4" : "/mascot/thinking.mp4"}
                       autoPlay
                       loop
                       muted

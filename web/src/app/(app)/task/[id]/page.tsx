@@ -86,6 +86,7 @@ export default function TaskPage() {
   // Dialogue state — restored from sessionStorage if available
   const [phase, setPhase] = useState<Phase>(saved?.phase ?? "question");
   const [answer, setAnswer] = useState(saved?.answer ?? "");
+  const [wrongAnswer, setWrongAnswer] = useState(saved?.answer ?? "");
   const [dialogueId, setDialogueId] = useState<string | null>(saved?.dialogueId ?? null);
   const [messages, setMessages] = useState<Message[]>(saved?.messages ?? []);
   const [theoryRef, setTheoryRef] = useState<TheoryRef | null>(saved?.theoryRef ?? null);
@@ -210,6 +211,7 @@ export default function TaskPage() {
       } else if (data.dialogue_id) {
         setDialogueId(data.dialogue_id);
         setPhase("wrong");
+        setWrongAnswer(answer.trim());
         setFailedPositions((prev) => new Set([...Array.from(prev), currentPos]));
       } else {
         setPhase("question");
@@ -363,9 +365,9 @@ export default function TaskPage() {
         {/* Answer input */}
         {(phase === "question" || phase === "submitting" || phase === "wrong") && (
           <div className="space-y-2">
-            {phase === "wrong" && (
+            {phase === "wrong" && answer === wrongAnswer && (
               <div className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">
-                Ответ <span className="font-semibold">{answer}</span> — неверно. Попробуй ещё раз.
+                Ответ <span className="font-semibold">{wrongAnswer}</span> — неверно. Попробуй ещё раз.
               </div>
             )}
             <div className="flex gap-2">

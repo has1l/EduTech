@@ -30,12 +30,6 @@ const OGE_SCORES = [
   { value: 5, label: "5", sub: "Отлично" },
 ] as const;
 
-const EGE_CURRENT = [
-  { value: 30, label: "~30", sub: "Начинаю" },
-  { value: 50, label: "~50", sub: "Базовый" },
-  { value: 70, label: "~70", sub: "Уверенный" },
-  { value: 85, label: "~85", sub: "Высокий" },
-] as const;
 
 const EGE_TARGET = [
   { value: 60, label: "60+", sub: "Хорошо" },

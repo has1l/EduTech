@@ -206,6 +206,7 @@ export default function TaskPage() {
             </p>
           )}
           {task.question_image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={
                 task.question_image_url.startsWith("data:") ||

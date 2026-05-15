@@ -20,6 +20,7 @@ function TaskImage({ url }: { url: string }) {
       ? url
       : `${API_URL}/tasks/image-proxy?url=${encodeURIComponent(url)}`;
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt="Условие задачи"

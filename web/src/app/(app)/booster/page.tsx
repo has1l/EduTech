@@ -340,15 +340,6 @@ export default function BoosterPage() {
     setLoaded(true);
   }, []);
 
-  function remove(taskId: string) {
-    removeFromBooster(taskId);
-    setItems((prev) => {
-      const next = prev.filter((i) => i.taskId !== taskId);
-      if (selectedId === taskId) setSelectedId(next[0]?.taskId ?? null);
-      return next;
-    });
-  }
-
   function handleSolved() {
     const idx = items.findIndex((i) => i.taskId === selectedId);
     removeFromBooster(selectedId!);

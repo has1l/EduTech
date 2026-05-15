@@ -160,6 +160,13 @@ export default function DiagnosticPage() {
               "Начать диагностику"
             )}
           </Button>
+          <button
+            onClick={() => router.replace("/today")}
+            disabled={phase === "loading"}
+            className="mt-3 text-sm text-muted hover:text-fg transition disabled:opacity-40"
+          >
+            Пропустить
+          </button>
         </main>
       </>
     );

@@ -47,7 +47,13 @@ struct TaskView: View {
         ZStack(alignment: .bottom) {
             Color.appBg.ignoresSafeArea()
             VStack(spacing: 0) {
-                topProgressBar
+                if !isEmbedded { topProgressBar }
+                if vm.phase.hasDialogue && isEmbedded {
+                    compactTaskCard
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                }
                 if vm.phase.hasDialogue {
                     tabSwitcher
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -214,10 +220,12 @@ struct TaskView: View {
     private var tutorContent: some View {
         if let dialogueId = vm.phase.dialogueId {
             VStack(spacing: 0) {
-                compactTaskCard
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                Divider()
+                if !isEmbedded {
+                    compactTaskCard
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                    Divider()
+                }
                 DialogueView(dialogueId: dialogueId, showHeader: false)
                     .id(dialogueId)
             }

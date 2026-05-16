@@ -31,7 +31,11 @@ struct TaskSessionHost: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            sessionHeader
+            topBar
+            ProgressView(value: Double(min(solvedCount, threshold)), total: Double(threshold))
+                .tint(isUnlocked ? Color.appSuccess : Color.appAccent)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 6)
             Divider()
             ZStack {
                 TabView(selection: $currentPage) {
@@ -60,19 +64,33 @@ struct TaskSessionHost: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
 
-                if showSwipeHint {
-                    swipeHint
-                }
+                if showSwipeHint { swipeHint }
             }
         }
         .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { router.pop() } label: {
-                    Image(systemName: "xmark").foregroundStyle(Color.appFg)
-                }
+        .toolbar(.hidden, for: .navigationBar)
+        .onChange(of: currentPage) { _, _ in dismissHint() }
+    }
+
+    // MARK: - Top bar
+
+    private var topBar: some View {
+        HStack(spacing: 0) {
+            // Close button
+            Button { router.pop() } label: {
+                Image(systemName: "xmark")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.appFg)
+                    .frame(width: 36, height: 36)
+                    .background(Color.appBorder.opacity(0.3))
+                    .clipShape(Circle())
             }
-            ToolbarItem(placement: .principal) {
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            // Dots + optional "+" button
+            HStack(spacing: 10) {
                 NavigationDots(
                     total: allIds.count,
                     currentIndex: currentPage,
@@ -80,70 +98,45 @@ struct TaskSessionHost: View {
                     failed: [],
                     ai: aiSet
                 )
-            }
-        }
-        .onChange(of: currentPage) { _, _ in dismissHint() }
-    }
-
-    // MARK: - Session header
-
-    private var sessionHeader: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 10) {
-                // Progress label
-                Text("\(solvedCount)/\(threshold) разблокировано")
-                    .font(.caption.bold())
-                    .foregroundStyle(isUnlocked ? Color.appSuccess : Color.appMuted)
-
-                Spacer()
-
-                // "+" add more tasks
-                if let topicId {
+                if topicId != nil {
                     Button {
-                        Task { await loadMoreTasks(topicId: topicId) }
+                        Task { await loadMoreTasks(topicId: topicId!) }
                     } label: {
-                        HStack(spacing: 4) {
+                        Group {
                             if isLoadingMore {
-                                ProgressView().scaleEffect(0.7)
+                                ProgressView().scaleEffect(0.65)
                             } else {
                                 Image(systemName: "plus")
+                                    .font(.caption.bold())
                             }
-                            Text("Ещё 5")
                         }
-                        .font(.caption.bold())
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.appBorder.opacity(0.5))
-                        .clipShape(Capsule())
-                        .foregroundStyle(Color.appFg)
+                        .foregroundStyle(Color.appMuted)
+                        .frame(width: 20, height: 20)
                     }
                     .buttonStyle(.plain)
                     .disabled(isLoadingMore)
                 }
-
-                // "Завершить"
-                Button {
-                    Task { await finishSession() }
-                } label: {
-                    Text("Завершить")
-                        .font(.caption.bold())
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(isUnlocked ? Color.appAccent : Color.appBorder.opacity(0.5))
-                        .foregroundStyle(isUnlocked ? Color.appAccentFg : Color.appMuted)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
 
-            ProgressView(value: Double(min(solvedCount, threshold)), total: Double(threshold))
-                .tint(isUnlocked ? Color.appSuccess : Color.appAccent)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 6)
+            Spacer()
+
+            // Finish button
+            Button {
+                Task { await finishSession() }
+            } label: {
+                Text("Завершить")
+                    .font(.subheadline.bold())
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(isUnlocked ? Color.appAccent : Color.appBorder.opacity(0.35))
+                    .foregroundStyle(isUnlocked ? Color.appAccentFg : Color.appMuted)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
         }
-        .background(Color.appBg)
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Load more

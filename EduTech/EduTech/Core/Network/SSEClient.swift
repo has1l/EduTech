@@ -52,43 +52,39 @@ struct SSEClient: Sendable {
 
     private static func emit(event: String?, payload: String, continuation: AsyncThrowingStream<SSEEvent, Error>.Continuation) {
         switch event {
-        case "delta":
+        case "token":
+            // payload is json.dumps(delta) — a JSON-encoded string e.g. "word"
             continuation.yield(.delta(jsonDecodeString(payload) ?? payload))
 
-        case "theory":
+        case "meta":
+            // {"theory_ref": {"title": "...", "section_id": "..."} | null, "hint_level": 1}
             if let data = payload.data(using: .utf8),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                continuation.yield(.theory(title: json["title"] as? String, sectionId: json["section_id"] as? String))
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let theoryData = json["theory_ref"] as? [String: Any] {
+                continuation.yield(.theory(title: theoryData["title"] as? String, sectionId: theoryData["section_id"] as? String))
             }
+            // done is sent separately by backend, but yield here just in case
 
         case "done":
             continuation.yield(.done)
 
         case "error":
-            continuation.yield(.error(payload))
+            if let data = payload.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let msg = json["message"] as? String {
+                continuation.yield(.error(msg))
+            } else {
+                continuation.yield(.error(payload))
+            }
 
         default:
             if payload == "[DONE]" {
                 continuation.yield(.done)
-            } else if let data = payload.data(using: .utf8),
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                // Final metadata packet: {"theory_ref": {...}, "hint_level": 1}
-                if let theoryData = json["theory_ref"] as? [String: Any] {
-                    continuation.yield(.theory(
-                        title: theoryData["title"] as? String,
-                        sectionId: theoryData["section_id"] as? String
-                    ))
-                }
-                continuation.yield(.done)
-            } else {
-                // Token may be JSON-encoded string, e.g. "word" with literal quotes
-                continuation.yield(.delta(jsonDecodeString(payload) ?? payload))
             }
         }
     }
 
     private static func jsonDecodeString(_ s: String) -> String? {
-        guard s.hasPrefix("\""), s.hasSuffix("\"") else { return nil }
         guard let data = s.data(using: .utf8) else { return nil }
         return try? JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed) as? String
     }

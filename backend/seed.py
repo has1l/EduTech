@@ -4,6 +4,7 @@ Idempotent: skips if data already exists.
 """
 import asyncio
 import uuid
+from typing import TypedDict
 
 from sqlalchemy import select
 
@@ -16,7 +17,15 @@ from app.models.topic import Topic
 
 SUBJECT_CODE = "math_oge"
 
-TOPICS = [
+
+class _TopicData(TypedDict):
+    code: str
+    title: str
+    weight: float
+    difficulty: int
+
+
+TOPICS: list[_TopicData] = [
     {"code": "percent_fractions", "title": "Проценты и доли", "weight": 0.12, "difficulty": 2},
     {"code": "powers_roots",      "title": "Степени и корни",  "weight": 0.10, "difficulty": 3},
     {"code": "equations",         "title": "Уравнения",        "weight": 0.15, "difficulty": 2},

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import TypedDict
 
 from fastapi import APIRouter, status
 from pydantic import BaseModel
@@ -11,7 +12,15 @@ from app.models.booster import KnowledgeBaseItem
 
 router = APIRouter()
 
-LEVELS = [
+
+class _Level(TypedDict):
+    min: int
+    name: str
+    emoji: str
+    next_at: int | None
+
+
+LEVELS: list[_Level] = [
     {"min": 0,   "name": "Новичок", "emoji": "🌱", "next_at": 10},
     {"min": 10,  "name": "Ученик",  "emoji": "📖", "next_at": 25},
     {"min": 25,  "name": "Знаток",  "emoji": "🎯", "next_at": 50},
@@ -20,7 +29,7 @@ LEVELS = [
 ]
 
 
-def _get_level(count: int) -> dict:
+def _get_level(count: int) -> _Level:
     level = LEVELS[0]
     for lvl in LEVELS:
         if count >= lvl["min"]:

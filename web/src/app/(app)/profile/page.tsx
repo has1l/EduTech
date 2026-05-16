@@ -238,7 +238,12 @@ export default function ProfilePage() {
                 {formIsOge ? "Какую оценку хочешь получить?" : "Какой балл хочешь набрать?"}
               </span>
               {formIsOge ? (
-                <ScoreButtons value={field.value as 3 | 4 | 5} onChange={field.onChange} options={OGE_SCORES} />
+                <>
+                  <ScoreButtons value={field.value as 3 | 4 | 5} onChange={field.onChange} options={OGE_SCORES} />
+                  <p className="mt-2 text-xs text-muted">
+                    Охватываем задания 6–19 ОГЭ (Часть 1). Задания 1–5 не входят в курс.
+                  </p>
+                </>
               ) : (
                 <>
                   <ScoreButtons value={field.value as 40 | 55 | 65 | 70} onChange={field.onChange} options={EGE_TARGET} cols={4} />

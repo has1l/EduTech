@@ -125,7 +125,10 @@ struct ProfileView: View {
                         }.buttonStyle(.plain)
                     }
                 }
-                if !isOge {
+                if isOge {
+                    Text("Задания 6–19 ОГЭ (Часть 1). Задания 1–5 не входят в курс.")
+                        .font(.caption2).foregroundStyle(Color.appMuted)
+                } else {
                     Text("Часть 1: задания 1–12, максимум 70 баллов")
                         .font(.caption2).foregroundStyle(Color.appMuted)
                 }

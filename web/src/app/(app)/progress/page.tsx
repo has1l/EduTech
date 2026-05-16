@@ -114,7 +114,7 @@ function ScoreCard() {
 
           {isOge ? (
             <p className="mt-2 text-[11px] text-muted/60">
-              Прогноз по заданиям 6–19 (задания 1–5 пока не охвачены системой).
+              Прогноз по заданиям 6–19 ОГЭ (Часть 1). Задания 1–5 не входят в курс.
             </p>
           ) : (
             <p className="mt-2 text-[11px] text-muted/60">

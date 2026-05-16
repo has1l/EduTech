@@ -105,7 +105,10 @@ private struct ScoreCard: View {
                 if !pred.explanation.isEmpty {
                     Text(pred.explanation).font(.caption).foregroundStyle(Color.appMuted)
                 }
-                if !pred.isOge {
+                if pred.isOge {
+                    Text("Прогноз по заданиям 6–19 ОГЭ (Часть 1). Задания 1–5 не входят в курс.")
+                        .font(.caption2).foregroundStyle(Color.appMuted.opacity(0.7))
+                } else {
                     Text("Прогноз по Части 1 (задания 1–12, до 70 баллов).")
                         .font(.caption2).foregroundStyle(Color.appMuted.opacity(0.7))
                 }

@@ -138,7 +138,12 @@ export default function OnboardingPage() {
                 {isOge ? "Какую оценку хочешь получить?" : "Какой балл хочешь набрать?"}
               </span>
               {isOge ? (
-                <ScoreButtons value={field.value} onChange={field.onChange} options={OGE_SCORES} />
+                <>
+                  <ScoreButtons value={field.value} onChange={field.onChange} options={OGE_SCORES} />
+                  <p className="mt-2 text-xs text-muted">
+                    Охватываем задания 6–19 ОГЭ (Часть 1). Задания 1–5 не входят в курс.
+                  </p>
+                </>
               ) : (
                 <>
                   <ScoreButtons
@@ -147,7 +152,7 @@ export default function OnboardingPage() {
                     options={egeTargetOptions}
                   />
                   <p className="mt-2 text-xs text-muted">
-                    Сейчас мы охватываем Часть 1 (задания 1–12). Максимум за неё — 70 тестовых баллов.
+                    Охватываем Часть 1: задания 1–12, максимум 70 тестовых баллов.
                   </p>
                 </>
               )}

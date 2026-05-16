@@ -80,67 +80,90 @@ struct TaskSessionHost: View {
 
     private var topBar: some View {
         HStack(spacing: 0) {
-            // Close button
-            Button { router.pop() } label: {
-                Image(systemName: "xmark")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Color.appFg)
-                    .frame(width: 36, height: 36)
-                    .background(Color.appBorder.opacity(0.3))
-                    .clipShape(Circle())
+            // Left: close button — fixed width so dots never push it
+            HStack {
+                Button { router.pop() } label: {
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Color.appFg)
+                        .frame(width: 36, height: 36)
+                        .background(Color.appBorder.opacity(0.3))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
-
-            // Dots + optional "+" button
-            HStack(spacing: 10) {
-                NavigationDots(
-                    total: allIds.count,
-                    currentIndex: currentPage,
-                    solved: solvedSet,
-                    failed: [],
-                    ai: aiSet
-                )
+            // Center: dots + "+" (shrinks dots when many tasks)
+            HStack(spacing: 8) {
+                scaledDots
                 if topicId != nil {
                     Button {
                         Task { await loadMoreTasks(topicId: topicId!) }
                     } label: {
                         Group {
                             if isLoadingMore {
-                                ProgressView().scaleEffect(0.65)
+                                ProgressView().scaleEffect(0.6)
                             } else {
                                 Image(systemName: "plus")
-                                    .font(.caption.bold())
+                                    .font(.caption2.bold())
                             }
                         }
                         .foregroundStyle(Color.appMuted)
-                        .frame(width: 20, height: 20)
+                        .frame(width: 18, height: 18)
                     }
                     .buttonStyle(.plain)
                     .disabled(isLoadingMore)
                 }
             }
 
-            Spacer()
-
-            // Finish button
-            Button {
-                Task { await finishSession() }
-            } label: {
-                Text("Завершить")
-                    .font(.subheadline.bold())
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(isUnlocked ? Color.appAccent : Color.appBorder.opacity(0.35))
-                    .foregroundStyle(isUnlocked ? Color.appAccentFg : Color.appMuted)
-                    .clipShape(Capsule())
+            // Right: finish button — fixed width mirrors left
+            HStack {
+                Spacer(minLength: 0)
+                Button {
+                    Task { await finishSession() }
+                } label: {
+                    Text("Завершить")
+                        .font(.subheadline.bold())
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(isUnlocked ? Color.appAccent : Color.appBorder.opacity(0.35))
+                        .foregroundStyle(isUnlocked ? Color.appAccentFg : Color.appMuted)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 16)
         .padding(.top, 14)
         .padding(.bottom, 8)
+    }
+
+    // Dots scale down when there are many tasks so they don't overflow
+    private var scaledDots: some View {
+        let count = allIds.count
+        let dotSize: CGFloat = count > 10 ? 6 : 8
+        let activeSize: CGFloat = count > 10 ? 8 : 10
+        let spacing: CGFloat = count > 10 ? 4 : 6
+        return HStack(spacing: spacing) {
+            ForEach(0..<count, id: \.self) { idx in
+                let position = idx + 1
+                let isCurrent = idx == currentPage
+                let color: Color = {
+                    if isCurrent { return Color.appFg }
+                    if solvedSet.contains(position) { return Color.appSuccess }
+                    if aiSet.contains(position) { return Color.appAccent }
+                    return Color.appBorder
+                }()
+                Circle()
+                    .fill(color)
+                    .frame(width: isCurrent ? activeSize : dotSize,
+                           height: isCurrent ? activeSize : dotSize)
+                    .animation(.smooth, value: color)
+            }
+        }
     }
 
     // MARK: - Load more

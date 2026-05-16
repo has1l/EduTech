@@ -90,10 +90,7 @@ struct TaskView: View {
                 TaskImage(urlString: imageUrl)
             }
             if !shouldHideText(task: task) {
-                Text(task.questionText)
-                    .font(.system(.title3, design: .serif))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                MathText(text: task.questionText, fontSize: 20)
             }
         }
     }

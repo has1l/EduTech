@@ -93,13 +93,12 @@ struct TaskSessionHost: View {
 
             Spacer()
 
-            // Dots + optional "+" button
+            // Sliding dots + optional "+" button
             HStack(spacing: 10) {
-                NavigationDots(
+                SessionDots(
                     total: allIds.count,
                     currentIndex: currentPage,
                     solved: solvedSet,
-                    failed: [],
                     ai: aiSet
                 )
                 if topicId != nil {
@@ -203,5 +202,53 @@ struct TaskSessionHost: View {
         guard showSwipeHint else { return }
         withAnimation(.smooth) { showSwipeHint = false }
         AppDefaults.didShowSwipeHint = true
+    }
+}
+
+// Sliding-window dots: always shows ≤5 dots, extras fade in/out at edges
+private struct SessionDots: View {
+    let total: Int
+    let currentIndex: Int
+    let solved: Set<Int>
+    let ai: Set<Int>
+
+    private let maxVisible = 5
+
+    private var windowStart: Int {
+        guard total > maxVisible else { return 0 }
+        let half = maxVisible / 2
+        return min(max(0, currentIndex - half), total - maxVisible)
+    }
+
+    private var visibleIndices: [Int] {
+        let start = windowStart
+        let end = min(start + maxVisible, total)
+        return Array(start..<end)
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(visibleIndices, id: \.self) { idx in
+                let position = idx + 1
+                let isCurrent = idx == currentIndex
+                let isEdge = total > maxVisible &&
+                    (idx == visibleIndices.first || idx == visibleIndices.last)
+
+                let color: Color = {
+                    if isCurrent { return Color.appFg }
+                    if solved.contains(position) { return Color.appSuccess }
+                    if ai.contains(position) { return Color.appAccent }
+                    return Color.appBorder
+                }()
+
+                Circle()
+                    .fill(color)
+                    .frame(width: isCurrent ? 10 : 8, height: isCurrent ? 10 : 8)
+                    .opacity(isEdge ? 0.35 : 1.0)
+                    .animation(.smooth, value: color)
+                    .transition(.scale(scale: 0.4).combined(with: .opacity))
+            }
+        }
+        .animation(.smooth, value: currentIndex)
     }
 }

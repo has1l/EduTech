@@ -39,7 +39,7 @@ enum LocalNotificationManager {
         guard granted else { return }
 
         // Remove old repeating notifications
-        let old = (0..<messages.count * 3).map { "\(repeatPrefix)\($0)" }
+        let old = (0..<72).map { "\(repeatPrefix)\($0)" }
         center.removePendingNotificationRequests(withIdentifiers: old)
 
         // Schedule 24 notifications (= 3 days at 3h interval), cycling through messages

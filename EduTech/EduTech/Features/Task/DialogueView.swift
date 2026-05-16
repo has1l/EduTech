@@ -114,13 +114,17 @@ final class DialogueVM {
     }
 }
 
+private let quickReplies = ["не помню", "не понимаю", "объясни иначе", "покажи пример"]
+
 struct DialogueView: View {
     @State var vm: DialogueVM
     @State private var reply: String = ""
     @FocusState private var inputFocused: Bool
+    var showHeader: Bool = true
 
-    init(dialogueId: UUID) {
+    init(dialogueId: UUID, showHeader: Bool = true) {
         _vm = State(initialValue: DialogueVM(dialogueId: dialogueId))
+        self.showHeader = showHeader
     }
 
     var body: some View {
@@ -128,7 +132,7 @@ struct DialogueView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        header
+                        if showHeader { header }
                         ForEach(Array(vm.messages.enumerated()), id: \.offset) { idx, msg in
                             messageBubble(msg, isStreaming: false)
                                 .id("msg-\(idx)")
@@ -220,36 +224,59 @@ struct DialogueView: View {
     }
 
     private var inputBar: some View {
-        HStack(spacing: 8) {
-            TextField("Ответь репетитору…", text: $reply, axis: .vertical)
-                .lineLimit(1...4)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color.appBg)
-                .overlay { RoundedRectangle(cornerRadius: 22).strokeBorder(Color.appBorder, lineWidth: 1) }
-                .clipShape(RoundedRectangle(cornerRadius: 22))
-                .focused($inputFocused)
-                .disabled(vm.isStreaming)
-            Button {
-                let text = reply
-                reply = ""
-                inputFocused = false
-                Task { await vm.sendReply(text) }
-            } label: {
-                Image(systemName: "arrow.up.circle.fill").font(.system(size: 32))
-                    .foregroundStyle(Color.appAccent)
+        VStack(spacing: 0) {
+            Rectangle().fill(Color.appBorder).frame(height: 0.5)
+            if !vm.isStreaming && reply.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(quickReplies, id: \.self) { chip in
+                            Button {
+                                reply = chip
+                                inputFocused = true
+                            } label: {
+                                Text(chip)
+                                    .font(.subheadline)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(Color.appBorder.opacity(0.45))
+                                    .foregroundStyle(Color.appFg)
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
             }
-            .disabled(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || vm.isStreaming)
+            HStack(spacing: 8) {
+                TextField("Ответь репетитору…", text: $reply, axis: .vertical)
+                    .lineLimit(1...4)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.appBg)
+                    .overlay { RoundedRectangle(cornerRadius: 22).strokeBorder(Color.appBorder, lineWidth: 1) }
+                    .clipShape(RoundedRectangle(cornerRadius: 22))
+                    .focused($inputFocused)
+                    .disabled(vm.isStreaming)
+                Button {
+                    let text = reply
+                    reply = ""
+                    inputFocused = false
+                    Task { await vm.sendReply(text) }
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill").font(.system(size: 32))
+                        .foregroundStyle(Color.appAccent)
+                }
+                .disabled(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || vm.isStreaming)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
         .background {
             Rectangle()
                 .fill(.regularMaterial)
                 .ignoresSafeArea(edges: .bottom)
-        }
-        .overlay(alignment: .top) {
-            Rectangle().fill(Color.appBorder).frame(height: 0.5)
         }
     }
 }

@@ -1,6 +1,15 @@
 import Foundation
 import SwiftUI
 
+// Simple in-memory cache so subsequent tasks in the queue load instantly
+@MainActor
+final class TaskCache {
+    static let shared = TaskCache()
+    private var cache: [UUID: EduTask] = [:]
+    func get(_ id: UUID) -> EduTask? { cache[id] }
+    func set(_ id: UUID, task: EduTask) { cache[id] = task }
+}
+
 enum Phase: Equatable {
     case loading
     case question
@@ -41,14 +50,36 @@ final class TaskVM {
     }
 
     func load() async {
+        // Instant load from cache if already prefetched
+        if let cached = TaskCache.shared.get(taskId) {
+            task = cached
+            answer = ""
+            phase = .question
+            prefetchQueue()
+            return
+        }
         phase = .loading
         do {
             let t: EduTask = try await APIClient.shared.request(.task(taskId))
-            self.task = t
-            self.answer = ""
+            TaskCache.shared.set(taskId, task: t)
+            task = t
+            answer = ""
             phase = .question
+            prefetchQueue()
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription ?? "Не удалось загрузить задачу"
+        }
+    }
+
+    private func prefetchQueue() {
+        let ids = Array(queue.prefix(4))
+        Task {
+            for id in ids {
+                guard TaskCache.shared.get(id) == nil else { continue }
+                if let t: EduTask = try? await APIClient.shared.request(.task(id)) {
+                    TaskCache.shared.set(id, task: t)
+                }
+            }
         }
     }
 

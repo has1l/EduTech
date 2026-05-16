@@ -140,8 +140,7 @@ struct SessionPathView: View {
             let session: SubtopicSession = try await APIClient.shared.request(.subtopicSession(topicId: node.topicId, count: 5))
             guard let first = session.tasks.first else { return }
             let allIds = session.tasks.map(\.id)
-            let queue = Array(allIds.dropFirst())
-            router.push(.task(id: first.id, queue: queue, total: allIds.count, all: allIds, origin: .session))
+            router.push(.taskSession(allIds: allIds, origin: .session))
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription
         }

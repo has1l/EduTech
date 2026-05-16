@@ -91,6 +91,7 @@ final class TaskVM {
             if result.correct {
                 solvedPositions.insert(currentPosition)
                 phase = .correct
+                onSolvedCorrectly?()
                 Task.detached(priority: .background) {
                     try? await APIClient.shared.requestVoid(.kbAdd(taskId: task.id, topicId: task.topicId))
                 }
@@ -110,6 +111,8 @@ final class TaskVM {
     }
 
     var pendingDialogueId: UUID?
+    var onSolvedCorrectly: (() -> Void)?
+    var onSolvedWithAI: (() -> Void)?
 
     func askForHelp() {
         guard let dlg = pendingDialogueId else { return }

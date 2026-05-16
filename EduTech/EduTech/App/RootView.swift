@@ -133,6 +133,8 @@ extension View {
             case .sessionPath: SessionPathView()
             case .task(let id, let queue, let total, let all, let origin):
                 TaskView(taskId: id, queue: queue, total: total, allIds: all, origin: origin)
+            case .taskSession(let allIds, let origin):
+                TaskSessionHost(allIds: allIds, origin: origin)
             case .profile: ProfileView()
             case .progress: ProgressOverviewView()
             case .booster: BoosterListView()

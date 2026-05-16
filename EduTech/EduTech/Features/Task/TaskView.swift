@@ -16,12 +16,28 @@ extension Phase {
 struct TaskView: View {
     @State var vm: TaskVM
     @State private var activeTab: TaskTab = .condition
-    @State private var showSwipeHint: Bool = !AppDefaults.didShowSwipeHint
     @Environment(Router.self) private var router
     @FocusState private var answerFocused: Bool
 
-    init(taskId: UUID, queue: [UUID], total: Int, allIds: [UUID], origin: TaskOrigin) {
+    // Embedded (TabView) mode callbacks — nil = standalone NavigationStack mode
+    var pageIndex: Int? = nil
+    var onNext: (() -> Void)? = nil
+    var onSolved: (() -> Void)? = nil
+    var onSolvedWithAI: (() -> Void)? = nil
+    var onFinish: (() -> Void)? = nil
+
+    var isEmbedded: Bool { onNext != nil }
+
+    init(taskId: UUID, queue: [UUID], total: Int, allIds: [UUID], origin: TaskOrigin,
+         pageIndex: Int? = nil, onNext: (() -> Void)? = nil,
+         onSolved: (() -> Void)? = nil, onSolvedWithAI: (() -> Void)? = nil,
+         onFinish: (() -> Void)? = nil) {
         _vm = State(initialValue: TaskVM(taskId: taskId, queue: queue, total: total, allIds: allIds, origin: origin))
+        self.pageIndex = pageIndex
+        self.onNext = onNext
+        self.onSolved = onSolved
+        self.onSolvedWithAI = onSolvedWithAI
+        self.onFinish = onFinish
     }
 
     private var showTutor: Bool { activeTab == .tutor && vm.phase.hasDialogue }
@@ -50,31 +66,28 @@ struct TaskView: View {
             if showCondition {
                 conditionBottomBar
             }
-            if showSwipeHint {
-                swipeHintOverlay
-            }
-            SwipeGestureOverlay(
-                onSwipeLeft: { skipTask() },
-                onSwipeRight: { router.pop() }
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(true)
         }
-        .navigationBarBackButtonHidden(true)
+        .navigationBarBackButtonHidden(isEmbedded ? false : true)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { router.pop() } label: {
-                    Image(systemName: "xmark").foregroundStyle(Color.appFg)
+            if !isEmbedded {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { router.pop() } label: {
+                        Image(systemName: "xmark").foregroundStyle(Color.appFg)
+                    }
+                }
+                ToolbarItem(placement: .principal) {
+                    NavigationDots(
+                        total: vm.total, currentIndex: vm.currentIndex,
+                        solved: vm.solvedPositions, failed: vm.failedPositions, ai: vm.aiPositions
+                    )
                 }
             }
-            ToolbarItem(placement: .principal) {
-                NavigationDots(
-                    total: vm.total, currentIndex: vm.currentIndex,
-                    solved: vm.solvedPositions, failed: vm.failedPositions, ai: vm.aiPositions
-                )
-            }
         }
-        .task(id: vm.taskId) { await vm.load() }
+        .task(id: vm.taskId) {
+            vm.onSolvedCorrectly = onSolved
+            vm.onSolvedWithAI = onSolvedWithAI
+            await vm.load()
+        }
         .onChange(of: vm.phase) { _, phase in
             if phase.hasDialogue {
                 withAnimation(.spring(duration: 0.3)) { activeTab = .tutor }
@@ -359,37 +372,11 @@ struct TaskView: View {
         }
     }
 
-    private var swipeHintOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.01)
-                .ignoresSafeArea()
-                .contentShape(Rectangle())
-            VStack {
-                Spacer()
-                HStack(spacing: 10) {
-                    Image(systemName: "arrow.left").font(.callout)
-                    Text("свайпайте для смены задания")
-                        .font(.subheadline)
-                    Image(systemName: "arrow.right").font(.callout)
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 22)
-                .padding(.vertical, 13)
-                .background(.black.opacity(0.65))
-                .clipShape(Capsule())
-                .padding(.bottom, 160)
-            }
-        }
-        .onTapGesture {
-            withAnimation(.smooth) { showSwipeHint = false }
-            AppDefaults.didShowSwipeHint = true
-        }
-        .transition(.opacity)
-        .animation(.smooth, value: showSwipeHint)
-        .allowsHitTesting(showSwipeHint)
-    }
-
     private func skipTask() {
+        if isEmbedded {
+            onNext?()
+            return
+        }
         guard vm.hasNext, let nextId = vm.queue.first else { return }
         Task {
             if let task = vm.task {
@@ -405,6 +392,16 @@ struct TaskView: View {
     }
 
     private func goNext() {
+        if isEmbedded {
+            // Last task → finish session via host callback
+            let myIndex = pageIndex ?? vm.currentIndex
+            if myIndex + 1 >= vm.total {
+                onFinish?()
+            } else {
+                onNext?()
+            }
+            return
+        }
         if let nextId = vm.queue.first {
             let newQueue = Array(vm.queue.dropFirst())
             router.path.removeLast()

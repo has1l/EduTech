@@ -101,6 +101,25 @@ struct MainTabsView: View {
             }
         }
         .tint(Color.appAccent)
+        .task {
+            // Reschedule every-3h notifications on each launch so they don't expire
+            if AppDefaults.dailyReminderTime != nil {
+                await LocalNotificationManager.scheduleRepeating()
+            }
+            // Check if streak was lost since last session
+            await checkStreakLost()
+        }
+    }
+}
+
+@MainActor
+private func checkStreakLost() async {
+    struct StreakDTO: Decodable { let currentStreak: Int }
+    guard let dto = try? await APIClient.shared.request(Endpoint(.GET, "/streak")) as StreakDTO else { return }
+    let prev = AppDefaults.lastKnownStreak
+    AppDefaults.lastKnownStreak = dto.currentStreak
+    if dto.currentStreak == 0 && prev > 0 {
+        await LocalNotificationManager.notifyStreakLost(previousStreak: prev)
     }
 }
 

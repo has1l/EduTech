@@ -171,6 +171,7 @@ struct ProfileView: View {
                         let h = cal.component(.hour, from: notificationTime)
                         let m = cal.component(.minute, from: notificationTime)
                         await LocalNotificationManager.scheduleDaily(hour: h, minute: m)
+                        await LocalNotificationManager.scheduleRepeating()
                     } else {
                         LocalNotificationManager.cancel()
                     }

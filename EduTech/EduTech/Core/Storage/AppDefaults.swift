@@ -8,11 +8,17 @@ enum AppDefaults {
         static let dailyReminderHour = "daily_reminder_hour"
         static let dailyReminderMinute = "daily_reminder_minute"
         static let didOnboard = "did_onboard"
+        static let lastKnownStreak = "last_known_streak"
     }
 
     static var anonymousEmail: String? {
         get { defaults.string(forKey: Key.anonymousEmail) }
         set { defaults.set(newValue, forKey: Key.anonymousEmail) }
+    }
+
+    static var lastKnownStreak: Int {
+        get { defaults.integer(forKey: Key.lastKnownStreak) }
+        set { defaults.set(newValue, forKey: Key.lastKnownStreak) }
     }
 
     static var dailyReminderTime: (hour: Int, minute: Int)? {

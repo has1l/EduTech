@@ -320,15 +320,6 @@ struct TaskView: View {
                 Text("Твой ответ: \(userAnswer)").font(.caption).foregroundStyle(Color.appMuted)
             }
             Spacer()
-            Button { vm.askForHelp() } label: {
-                Text("Помоги")
-                    .font(.subheadline.bold())
-                    .padding(.horizontal, 14).padding(.vertical, 10)
-                    .background(Color.appFg)
-                    .foregroundStyle(Color.appBg)
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
         }
         .padding(14)
         .background(Color.appDanger.opacity(0.10))

@@ -10,7 +10,6 @@ const TABS = [
   { href: "/today", label: "Курсы" },
   { href: "/progress", label: "Прогресс" },
   { href: "/booster", label: "Бустер" },
-  { href: "/theory", label: "Теория" },
   { href: "/profile", label: "Профиль" },
 ] as const;
 

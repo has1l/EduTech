@@ -895,7 +895,131 @@ type Stroke = { id: string; points: [number, number][]; color: string; width: nu
 
 ---
 
-## 18. Стиль работы
+## 18. Прогноз балла — GPT-анализ
+
+**Эндпоинт:** `GET /progress/score-prediction`
+
+**Логика:**
+- Агрегирует mastery по каждому из 12 заданий из `user_topic_progress`: mastery = avg(correct_count / 5) по всем подтемам задания, cap 1.0
+- Передаёт GPT-4o: % освоения по каждому заданию, целевой балл, дни до экзамена
+- GPT возвращает `by_plan`, `if_nothing`, `explanation`
+- Результат кешируется в Redis на **24 часа** (ключ `score_pred:{user_id}`)
+
+**Шкала ЕГЭ (Часть 1, задания 1–12):**
+- Максимум 12 первичных баллов = **70 тестовых** (не 100!)
+- Таблица: 1→6, 2→11, 3→17, 4→22, 5→27, 6→34, 7→39, 8→46, 9→52, 10→58, 11→64, 12→70
+- Отображаем только Часть 1 — Часть 2 (задания 13–19) не охвачена MVP
+
+**ОГЭ:** GPT возвращает оценку 3/4/5 (8–14 первичных = 3, 15–21 = 4, 22+ = 5)
+
+**Формульный fallback:** функции `_formula_predict_ege` / `_formula_predict_oge` в `progress.py`, отключены флагом `USE_GPT_PREDICTION = True`
+
+**Ответ (`ScorePrediction`):**
+```python
+target: int        # цель пользователя (≤70 для ЕГЭ)
+by_plan: int       # прогноз по плану занятий
+if_nothing: int    # прогноз без занятий
+explanation: str   # 2-3 предложения от GPT
+max_possible: int  # 70 для ЕГЭ, 5 для ОГЭ
+is_oge: bool
+```
+
+**Фронт (`progress/page.tsx` → `ScoreCard`):**
+- `useScorePrediction()` хук, staleTime 23 часа
+- Пока грузится — skeleton анимация
+- Цель для ЕГЭ всегда ≤ 70: `Math.min(rawTarget, 70)`
+- Бары: цель / по плану / без занятий — `max = max_possible`
+- Дисклеймер «Часть 2 не учитывается» для ЕГЭ
+
+**Профиль (`profile/page.tsx`):**
+- Варианты цели ЕГЭ изменены: `40 / 55 / 65 / 70` (вместо 60/75/85/95)
+- Под выбором — пояснение про Часть 1 и максимум 70 баллов
+- Дефолт при переключении на ЕГЭ: 65
+
+---
+
+## 19. iOS нативное приложение
+
+Проект в `EduTech/EduTech/` (Xcode). `PBXFileSystemSynchronizedRootGroup` — файлы из папки подхватываются автоматически, отдельно в pbxproj не добавлять.
+
+**Ключевые решения:**
+- **iOS 26.2+** — ради Liquid Glass (`.glassEffect()`, `GlassEffectContainer`)
+- **Bundle ID:** `squad52.dev.EduTech`, team `2NXN9F6VAY` (Free Apple ID, 7-дневные провижны)
+- **Анонимная тихая регистрация** — экрана логина нет. Email: `device_<uuid>@anon.edutech.app`, пароль — UUID в Keychain
+- **Яндекс ID** — отложен до iOS-клиента в кабинете Яндекса
+- **Рисование на задачах** — не делаем
+
+**Структура:**
+```
+EduTech/EduTech/
+├── App/           EduTechApp, AppState, Router, RootView, Config
+├── Core/
+│   ├── Network/   APIClient (actor), SSEClient, Endpoint, APIError
+│   ├── Auth/      KeychainStore, TokenManager (actor)
+│   ├── Storage/   AppDefaults
+│   ├── Notifications/  LocalNotificationManager (локальные, не APNs)
+│   └── Theme/     appBg, appFg, appAccent=#FFD000
+├── Models/        Models.swift — все Codable (snake_case→camelCase автоматически)
+├── Features/      Onboarding, Session, Task, Booster, Progress, Profile
+├── Shared/        PrimaryButton, GlassCard, TaskImage, MathText
+└── Resources/Mascot/  idle.mp4, thinking.mp4, investigating.mp4
+```
+
+**Важные баги и решения:**
+
+- **`Task` конфликтует со `Swift.Task`** — модель задачи названа `EduTask`
+- **DNS симулятора** может не резолвить Railway hostname — на реальном устройстве работает. Лечить: `dscacheutil -flushcache` + `sudo killall -HUP mDNSResponder`
+- **Swift 6 / `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`** — всё MainActor по умолчанию. Network actors — явные `actor`
+
+---
+
+### SSEClient — формат событий бэкенда
+
+Бэкенд (`ai_service.py`) шлёт строго:
+- `event: token` + `data: "слово"` (json.dumps токена) — стриминг текста
+- `event: meta` + `data: {"theory_ref": {...}|null, "hint_level": 1}` — финальные метаданные
+- `event: done` — завершение
+- `event: error` + `data: {"message": "..."}` — ошибка
+
+**Критично:** не `delta`/`theory` как в некоторых других SSE API — именно `token`/`meta`. SSEClient в iOS обрабатывает именно эти имена.
+
+`jsonDecodeString` в SSEClient декодирует JSON-строку токена (`"слово"` → `слово`).
+
+---
+
+### Маскот в iOS
+
+`AVQueuePlayer` + `AVPlayerLooper`, `isMuted = true`, `preventsDisplaySleepDuringVideoPlayback = false`.
+
+**Важно:**
+- `playerLayer.backgroundColor = UIColor.clear.cgColor` — иначе фон плеера чёрный
+- `videoGravity = .resizeAspectFill` — заполняет круг без чёрных полей
+- `.background(Color.white).clipShape(Circle())` на `MascotView` — вместо `.blendMode(.multiply)` (не работало на тёмной теме)
+
+---
+
+### Картинки задач (TaskImage)
+
+- Base64 PNG из bank-ege.ru декодируется с `.ignoreUnknownCharacters`
+- Проксированные картинки грузятся через `APIClient.shared.rawRequest` (с auth-заголовком), не через `URLSession.shared`
+- `.background(Color.white)` перед `.clipShape` — чтобы чёрные буквы на PNG с прозрачным фоном были видны на тёмной теме
+- `Endpoint.imageProxy` возвращает `Endpoint`, не `URL`
+
+---
+
+### LaTeX в диалоге (MathText)
+
+`Shared/MathText.swift` — WKWebView + KaTeX CDN:
+- Если текст содержит `\(` или `\[` → рендерит через KaTeX
+- Иначе → обычный `Text` (без WKWebView overhead)
+- Высота WebView измеряется дважды: сразу и через 1.8 сек (после загрузки KaTeX CDN)
+- `@media (prefers-color-scheme: dark)` в HTML — цвет текста адаптируется
+
+**В `DialogueView`:** завершённые сообщения ассистента → `MathText`. Стриминг → обычный `Text` (WKWebView не перезагружается на каждый токен).
+
+---
+
+## 20. Стиль работы
 
 - Общение с пользователем (Родион) на русском, неформально, коротко
 - Не писать комментариев в коде «что делает функция» — имена должны говорить сами

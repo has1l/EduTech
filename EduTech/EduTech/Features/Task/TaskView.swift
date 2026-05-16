@@ -16,6 +16,7 @@ extension Phase {
 struct TaskView: View {
     @State var vm: TaskVM
     @State private var activeTab: TaskTab = .condition
+    @State private var showSwipeHint: Bool = !AppDefaults.didShowSwipeHint
     @Environment(Router.self) private var router
     @FocusState private var answerFocused: Bool
 
@@ -49,6 +50,9 @@ struct TaskView: View {
             if showCondition {
                 conditionBottomBar
             }
+            if showSwipeHint {
+                swipeHintOverlay
+            }
         }
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -70,12 +74,16 @@ struct TaskView: View {
                 withAnimation(.spring(duration: 0.3)) { activeTab = .tutor }
             }
         }
-        .gesture(
-            DragGesture(minimumDistance: 60)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 60, coordinateSpace: .global)
                 .onEnded { value in
-                    guard abs(value.translation.height) < abs(value.translation.width) else { return }
-                    if value.translation.width < 0 { skipTask() }   // swipe left → skip
-                    else { router.pop() }                            // swipe right → back to session
+                    let h = value.translation.width
+                    let v = value.translation.height
+                    guard abs(h) > abs(v) * 2, abs(h) > 60 else { return }
+                    withAnimation(.smooth) { showSwipeHint = false }
+                    AppDefaults.didShowSwipeHint = true
+                    if h < 0 { skipTask() }
+                    else { router.pop() }
                 }
         )
     }
@@ -90,23 +98,8 @@ struct TaskView: View {
                     .font(.caption.bold())
                     .foregroundStyle(s >= 5 ? Color.appSuccess : Color.appMuted)
                 Spacer()
-                HStack(spacing: 12) {
-                    Button { router.pop() } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.caption.bold())
-                            .foregroundStyle(Color.appMuted)
-                    }
-                    .buttonStyle(.plain)
-                    Text("Задача \(vm.currentPosition) из \(vm.total)")
-                        .font(.caption).foregroundStyle(Color.appMuted)
-                    Button { skipTask() } label: {
-                        Image(systemName: "chevron.right")
-                            .font(.caption.bold())
-                            .foregroundStyle(vm.hasNext ? Color.appFg : Color.appMuted.opacity(0.4))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!vm.hasNext)
-                }
+                Text("Задача \(vm.currentPosition) из \(vm.total)")
+                    .font(.caption).foregroundStyle(Color.appMuted)
             }
             .padding(.horizontal, 20)
             .padding(.top, 6)
@@ -370,6 +363,36 @@ struct TaskView: View {
         default:
             EmptyView()
         }
+    }
+
+    private var swipeHintOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.01)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+            VStack {
+                Spacer()
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.left").font(.callout)
+                    Text("свайпайте для смены задания")
+                        .font(.subheadline)
+                    Image(systemName: "arrow.right").font(.callout)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 13)
+                .background(.black.opacity(0.65))
+                .clipShape(Capsule())
+                .padding(.bottom, 160)
+            }
+        }
+        .onTapGesture {
+            withAnimation(.smooth) { showSwipeHint = false }
+            AppDefaults.didShowSwipeHint = true
+        }
+        .transition(.opacity)
+        .animation(.smooth, value: showSwipeHint)
+        .allowsHitTesting(showSwipeHint)
     }
 
     private func skipTask() {

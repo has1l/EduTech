@@ -9,6 +9,12 @@ enum AppDefaults {
         static let dailyReminderMinute = "daily_reminder_minute"
         static let didOnboard = "did_onboard"
         static let lastKnownStreak = "last_known_streak"
+        static let didShowSwipeHint = "did_show_swipe_hint"
+    }
+
+    static var didShowSwipeHint: Bool {
+        get { defaults.bool(forKey: Key.didShowSwipeHint) }
+        set { defaults.set(newValue, forKey: Key.didShowSwipeHint) }
     }
 
     static var anonymousEmail: String? {

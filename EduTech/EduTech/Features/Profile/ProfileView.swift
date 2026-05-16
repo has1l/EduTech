@@ -199,7 +199,7 @@ struct ProfileView: View {
         } label: {
             HStack {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
-                Text("Сбросить аккаунт").font(.subheadline.bold())
+                Text("Выйти из аккаунта").font(.subheadline.bold())
             }
             .foregroundStyle(Color.appDanger)
             .frame(maxWidth: .infinity, minHeight: 48)

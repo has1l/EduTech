@@ -34,6 +34,10 @@ extension Endpoint {
         struct Body: Encodable { let refresh_token: String }
         return Endpoint(.POST, "/auth/refresh", body: Body(refresh_token: refreshToken), needsAuth: false)
     }
+    static func yandexAuth(code: String, redirectUri: String) -> Endpoint {
+        struct Body: Encodable { let code: String; let redirect_uri: String }
+        return Endpoint(.POST, "/auth/yandex", body: Body(code: code, redirect_uri: redirectUri), needsAuth: false)
+    }
 
     // Users
     static let me = Endpoint(.GET, "/users/me")

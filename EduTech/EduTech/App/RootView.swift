@@ -5,7 +5,11 @@ struct RootView: View {
     @Environment(Router.self) private var router
 
     var body: some View {
-        if appState.currentUser == nil {
+        if appState.isAuthenticating {
+            BootstrapView()
+        } else if appState.showLoginFlow {
+            LoginView()
+        } else if appState.currentUser == nil {
             BootstrapView()
         } else if appState.needsOnboarding {
             OnboardingFlow()

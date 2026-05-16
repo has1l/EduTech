@@ -4,6 +4,7 @@ import SwiftUI
 @Observable
 final class AppState {
     var currentUser: User?
+    var showLoginFlow = false
     var isAuthenticating = false
     var bootstrapError: String?
 
@@ -16,16 +17,19 @@ final class AppState {
         currentUser?.diagnosticCompletedAt != nil
     }
 
-    /// On launch — auto-login via stored token, or silent anonymous register.
+    /// On launch — restore session from keychain. If no token, show login.
     func bootstrap() async {
         isAuthenticating = true
         defer { isAuthenticating = false }
         do {
             if await TokenManager.shared.isAuthenticated {
                 try await fetchMe()
-                return
+            } else {
+                showLoginFlow = true
             }
-            try await silentRegister()
+        } catch APIError.unauthorized {
+            await TokenManager.shared.clear()
+            showLoginFlow = true
         } catch {
             bootstrapError = (error as? LocalizedError)?.errorDescription ?? "Не удалось войти"
         }
@@ -34,32 +38,30 @@ final class AppState {
     func fetchMe() async throws {
         let user: User = try await APIClient.shared.request(.me)
         currentUser = user
+        showLoginFlow = false
     }
 
-    private func silentRegister() async throws {
-        let email: String
-        if let saved = AppDefaults.anonymousEmail {
-            email = saved
-        } else {
-            email = "device_\(UUID().uuidString.prefix(12).lowercased())@anon.edutech.app"
-            AppDefaults.anonymousEmail = email
-        }
-        let password = UUID().uuidString + UUID().uuidString
-        KeychainStore.set(password, for: "anonymous_password")
+    func loginWithEmail(email: String, password: String) async throws {
+        let resp: AuthResponse = try await APIClient.shared.request(.login(email: email, password: password))
+        await TokenManager.shared.setTokens(resp.tokens)
+        currentUser = resp.user
+        showLoginFlow = false
+    }
 
-        do {
-            let resp: AuthResponse = try await APIClient.shared.request(.register(email: email, password: password))
-            await TokenManager.shared.setTokens(resp.tokens)
-            currentUser = resp.user
-        } catch APIError.server(let status, _) where status == 409 || status == 400 {
-            if let stored = KeychainStore.get("anonymous_password") {
-                let resp: AuthResponse = try await APIClient.shared.request(.login(email: email, password: stored))
-                await TokenManager.shared.setTokens(resp.tokens)
-                currentUser = resp.user
-            } else {
-                throw APIError.unauthorized
-            }
-        }
+    func registerWithEmail(email: String, password: String) async throws {
+        let resp: AuthResponse = try await APIClient.shared.request(.register(email: email, password: password))
+        await TokenManager.shared.setTokens(resp.tokens)
+        currentUser = resp.user
+        showLoginFlow = false
+    }
+
+    func loginWithYandex(code: String) async throws {
+        let resp: AuthResponse = try await APIClient.shared.request(
+            .yandexAuth(code: code, redirectUri: Config.yandexRedirectUri)
+        )
+        await TokenManager.shared.setTokens(resp.tokens)
+        currentUser = resp.user
+        showLoginFlow = false
     }
 
     func logout() async {
@@ -67,5 +69,6 @@ final class AppState {
         KeychainStore.deleteAll()
         AppDefaults.anonymousEmail = nil
         currentUser = nil
+        showLoginFlow = true
     }
 }

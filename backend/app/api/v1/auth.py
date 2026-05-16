@@ -95,7 +95,8 @@ async def logout(body: RefreshRequest, redis: RedisClient) -> None:
 
 @router.post("/yandex", response_model=AuthResponse)
 async def yandex_auth(body: YandexAuthRequest, db: DbSession, redis: RedisClient) -> AuthResponse:
-    if body.redirect_uri and body.redirect_uri != settings.yandex_redirect_uri_web:
+    allowed = {settings.yandex_redirect_uri_web, settings.yandex_redirect_uri_mobile}
+    if body.redirect_uri and body.redirect_uri not in allowed:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid Yandex redirect URI",

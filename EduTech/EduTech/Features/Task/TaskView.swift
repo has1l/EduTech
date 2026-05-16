@@ -53,6 +53,12 @@ struct TaskView: View {
             if showSwipeHint {
                 swipeHintOverlay
             }
+            SwipeGestureOverlay(
+                onSwipeLeft: { skipTask() },
+                onSwipeRight: { router.pop() }
+            )
+            .ignoresSafeArea()
+            .allowsHitTesting(true)
         }
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -74,18 +80,6 @@ struct TaskView: View {
                 withAnimation(.spring(duration: 0.3)) { activeTab = .tutor }
             }
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 60, coordinateSpace: .global)
-                .onEnded { value in
-                    let h = value.translation.width
-                    let v = value.translation.height
-                    guard abs(h) > abs(v) * 2, abs(h) > 60 else { return }
-                    withAnimation(.smooth) { showSwipeHint = false }
-                    AppDefaults.didShowSwipeHint = true
-                    if h < 0 { skipTask() }
-                    else { router.pop() }
-                }
-        )
     }
 
     // MARK: - Progress bar

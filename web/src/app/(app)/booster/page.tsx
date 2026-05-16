@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, ChevronLeft, SkipForward, Sparkles, Zap } from "lucide-react";
+import { BookOpen, SkipForward, Sparkles, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { MathText } from "@/components/math-text";
 import { Button } from "@/components/ui/button";
@@ -385,9 +385,6 @@ export default function BoosterPage() {
       <div className="flex flex-col h-[calc(100vh-3.5rem)]">
 
         <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
-          <Link href="/today" className="text-muted hover:text-fg transition">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
           <Zap className="h-5 w-5 text-accent" />
           <div className="flex-1">
             <h1 className="text-lg font-bold leading-tight">Бустер</h1>

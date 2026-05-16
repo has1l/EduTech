@@ -56,7 +56,8 @@ private struct MascotPlayer: UIViewRepresentable {
             player.isMuted = true
             player.preventsDisplaySleepDuringVideoPlayback = false
             view.playerLayer.player = player
-            view.playerLayer.videoGravity = .resizeAspect
+            view.playerLayer.videoGravity = .resizeAspectFill
+            view.playerLayer.backgroundColor = UIColor.clear.cgColor
             self.player = player
             self.view = view
             self.switch(to: kind)

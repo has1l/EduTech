@@ -138,11 +138,23 @@ struct TaskView: View {
                     ProgressView().frame(maxWidth: .infinity).padding(.top, 60)
                 case .question, .submitting:
                     answerInputView
+                    PrimaryButton(
+                        title: "Проверить",
+                        isLoading: vm.phase == .submitting,
+                        disabled: vm.answer.isEmpty
+                    ) {
+                        answerFocused = false
+                        Task { await vm.submit() }
+                    }
                 case .correct:
                     correctBanner
                 case .wrong(let a):
                     wrongBanner(userAnswer: a)
                     answerInputView
+                    HStack(spacing: 10) {
+                        SecondaryButton(title: "Объяснить сразу") { Task { await vm.giveUp() } }
+                        PrimaryButton(title: "Помоги разобрать") { vm.askForHelp() }
+                    }
                 case .dialogue, .giveup:
                     tutorCallout
                 }
@@ -327,36 +339,22 @@ struct TaskView: View {
 
     @ViewBuilder
     private var conditionBottomBar: some View {
-        VStack {
-            Spacer()
-            HStack(spacing: 10) {
-                switch vm.phase {
-                case .question, .submitting:
-                    PrimaryButton(
-                        title: "Проверить",
-                        isLoading: vm.phase == .submitting,
-                        disabled: vm.answer.isEmpty
-                    ) {
-                        answerFocused = false
-                        Task { await vm.submit() }
+        switch vm.phase {
+        case .correct, .giveup, .dialogue:
+            VStack {
+                Spacer()
+                PrimaryButton(title: vm.hasNext ? "Дальше →" : "Завершить") { goNext() }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background {
+                        Rectangle().fill(.regularMaterial).ignoresSafeArea(edges: .bottom)
                     }
-                case .wrong:
-                    SecondaryButton(title: "Объяснить сразу") { Task { await vm.giveUp() } }
-                    PrimaryButton(title: "Помоги разобрать") { vm.askForHelp() }
-                case .correct, .giveup, .dialogue:
-                    PrimaryButton(title: vm.hasNext ? "Дальше →" : "Завершить") { goNext() }
-                case .loading:
-                    EmptyView()
-                }
+                    .overlay(alignment: .top) {
+                        Rectangle().fill(Color.appBorder).frame(height: 0.5)
+                    }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background {
-                Rectangle().fill(.regularMaterial).ignoresSafeArea(edges: .bottom)
-            }
-            .overlay(alignment: .top) {
-                Rectangle().fill(Color.appBorder).frame(height: 0.5)
-            }
+        default:
+            EmptyView()
         }
     }
 

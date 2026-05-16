@@ -126,11 +126,9 @@ extension Endpoint {
     }
     static let kbClear = Endpoint(.POST, "/kb/clear", body: EmptyBody())
 
-    // Image proxy
-    static func imageProxy(url: String) -> URL {
-        var c = URLComponents(url: Config.apiBaseURL.appendingPathComponent("tasks/image-proxy"), resolvingAgainstBaseURL: false)!
-        c.queryItems = [.init(name: "url", value: url)]
-        return c.url!
+    // Image proxy — goes through APIClient so auth header is included
+    static func imageProxy(url: String) -> Endpoint {
+        Endpoint(.GET, "/tasks/image-proxy", query: [.init(name: "url", value: url)])
     }
 }
 

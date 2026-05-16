@@ -19,7 +19,8 @@ struct MascotView: View {
     var body: some View {
         MascotPlayer(kind: kind)
             .frame(width: size, height: size)
-            .blendMode(.multiply)
+            .background(Color.white)
+            .clipShape(Circle())
             .accessibilityHidden(true)
     }
 }

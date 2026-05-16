@@ -38,9 +38,10 @@ export default function DiagnosticPage() {
   const router = useRouter();
   const tokens = useAuth((s) => s.tokens);
   const { data: me } = useMe();
-  const examLabel = me?.grade != null && me.grade <= 9
-    ? "ОГЭ · Математика"
-    : "ЕГЭ · Профильная математика";
+  const isOge = me?.grade != null && me.grade <= 9;
+  const examLabel = isOge ? "ОГЭ · Математика" : "ЕГЭ · Профильная математика";
+  const taskCount = isOge ? 14 : 12;
+  const taskRange = isOge ? "6–19" : "1–12";
 
   const [phase, setPhase] = useState<"intro" | "loading" | "quiz">("intro");
   const [session, setSession] = useState<DiagnosticSession | null>(null);
@@ -124,8 +125,8 @@ export default function DiagnosticPage() {
             <div className="flex items-center gap-3 rounded-2xl border border-border px-4 py-3 text-left">
               <ClipboardList className="h-5 w-5 shrink-0 text-accent" />
               <div>
-                <p className="text-sm font-medium">12 заданий</p>
-                <p className="text-xs text-muted">Задания 1–12 из {examLabel}</p>
+                <p className="text-sm font-medium">{taskCount} заданий</p>
+                <p className="text-xs text-muted">Задания {taskRange} из {examLabel}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-2xl border border-border px-4 py-3 text-left">

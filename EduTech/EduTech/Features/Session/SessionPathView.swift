@@ -138,9 +138,9 @@ struct SessionPathView: View {
     private func startSubtopic(_ node: PathNode) async {
         do {
             let session: SubtopicSession = try await APIClient.shared.request(.subtopicSession(topicId: node.topicId, count: 5))
-            guard let first = session.tasks.first else { return }
+            guard !session.tasks.isEmpty else { return }
             let allIds = session.tasks.map(\.id)
-            router.push(.taskSession(allIds: allIds, origin: .session))
+            router.push(.taskSession(allIds: allIds, topicId: node.topicId, origin: .session))
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription
         }

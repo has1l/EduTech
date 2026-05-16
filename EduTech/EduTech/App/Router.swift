@@ -14,7 +14,7 @@ enum Route: Hashable {
     case diagnosticResult
     case sessionPath
     case task(id: UUID, queue: [UUID], total: Int, all: [UUID], origin: TaskOrigin)
-    case taskSession(allIds: [UUID], origin: TaskOrigin)
+    case taskSession(allIds: [UUID], topicId: UUID?, origin: TaskOrigin)
     case profile
     case progress
     case booster

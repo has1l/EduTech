@@ -84,19 +84,23 @@ private struct BootstrapView: View {
 
 struct MainTabsView: View {
     @Environment(Router.self) private var router
+    @Environment(AppState.self) private var appState
 
     var body: some View {
         @Bindable var router = router
         TabView(selection: $router.rootTab) {
-            Tab("Сегодня", systemImage: "sparkles", value: RootTab.home) {
+            Tab("Курс", systemImage: "graduationcap.fill", value: RootTab.home) {
                 NavigationStack(path: $router.path) {
                     SessionPathView()
                         .navigationDestinationsForApp()
                 }
             }
             Tab("Бустер", systemImage: "bolt.fill", value: RootTab.booster) {
-                NavigationStack { BoosterListView().navigationDestinationsForApp() }
+                NavigationStack(path: $router.boosterPath) {
+                    BoosterListView().navigationDestinationsForApp()
+                }
             }
+            .badge(appState.boosterCount > 0 ? appState.boosterCount : 0)
             Tab("Прогресс", systemImage: "chart.line.uptrend.xyaxis", value: RootTab.progress) {
                 NavigationStack { ProgressOverviewView().navigationDestinationsForApp() }
             }
@@ -106,12 +110,11 @@ struct MainTabsView: View {
         }
         .tint(Color.appAccent)
         .task {
-            // Reschedule every-3h notifications on each launch so they don't expire
             if AppDefaults.dailyReminderTime != nil {
                 await LocalNotificationManager.scheduleRepeating()
             }
-            // Check if streak was lost since last session
             await checkStreakLost()
+            await appState.fetchBoosterCount()
         }
     }
 }
@@ -137,8 +140,8 @@ extension View {
             case .sessionPath: SessionPathView()
             case .task(let id, let queue, let total, let all, let origin):
                 TaskView(taskId: id, queue: queue, total: total, allIds: all, origin: origin)
-            case .taskSession(let allIds, let topicId, let origin):
-                TaskSessionHost(allIds: allIds, topicId: topicId, origin: origin)
+            case .taskSession(let allIds, let topicId, let origin, let initialPage):
+                TaskSessionHost(allIds: allIds, topicId: topicId, origin: origin, initialPage: initialPage)
             case .profile: ProfileView()
             case .progress: ProgressOverviewView()
             case .booster: BoosterListView()

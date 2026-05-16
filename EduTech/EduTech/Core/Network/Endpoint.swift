@@ -82,15 +82,17 @@ extension Endpoint {
 
     // Diagnostic
     static let diagnosticStart = Endpoint(.POST, "/diagnostic/start", body: EmptyBody())
-    static func diagnosticAnswer(taskId: UUID, answer: String, sessionId: UUID) -> Endpoint {
-        struct Body: Encodable { let task_id: String; let answer: String; let session_id: String }
-        return Endpoint(.POST, "/diagnostic/answer", body: Body(task_id: taskId.uuidString.lowercased(), answer: answer, session_id: sessionId.uuidString.lowercased()))
+    static func diagnosticSubmit(sessionId: String, answers: [(taskId: UUID, answer: String)]) -> Endpoint {
+        struct Body: Encodable {
+            let session_id: String
+            let answers: [AnswerItem]
+            struct AnswerItem: Encodable { let task_id: String; let answer: String }
+        }
+        return Endpoint(.POST, "/diagnostic/submit", body: Body(
+            session_id: sessionId,
+            answers: answers.map { Body.AnswerItem(task_id: $0.taskId.uuidString.lowercased(), answer: $0.answer) }
+        ))
     }
-    static func diagnosticSubmit(sessionId: UUID) -> Endpoint {
-        struct Body: Encodable { let session_id: String }
-        return Endpoint(.POST, "/diagnostic/submit", body: Body(session_id: sessionId.uuidString.lowercased()))
-    }
-    static let diagnosticResult = Endpoint(.GET, "/diagnostic/result")
 
     // Progress / streak / plan
     static let streak = Endpoint(.GET, "/streak")

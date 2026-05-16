@@ -12,8 +12,9 @@ struct TaskSessionHost: View {
     @State private var showSwipeHint: Bool = !AppDefaults.didShowSwipeHint
     @Environment(Router.self) private var router
 
-    init(allIds: [UUID], topicId: UUID?, origin: TaskOrigin) {
+    init(allIds: [UUID], topicId: UUID?, origin: TaskOrigin, initialPage: Int = 0) {
         _allIds = State(initialValue: allIds)
+        _currentPage = State(initialValue: min(initialPage, max(0, allIds.count - 1)))
         self.topicId = topicId
         self.origin = origin
     }
@@ -101,7 +102,7 @@ struct TaskSessionHost: View {
                     solved: solvedSet,
                     ai: aiSet
                 )
-                if topicId != nil {
+                if topicId != nil && origin != .booster {
                     Button {
                         Task { await loadMoreTasks(topicId: topicId!) }
                     } label: {
@@ -161,12 +162,14 @@ struct TaskSessionHost: View {
     // MARK: - Finish
 
     private func finishSession() async {
-        for taskId in allIds {
-            if solvedTaskIds.contains(taskId) { continue }
-            let reason = aiTaskIds.contains(taskId) ? "ai" : "skipped"
-            try? await APIClient.shared.requestVoid(.boosterAdd(
-                taskId: taskId, topicId: topicId, reason: reason, questionPreview: ""
-            ))
+        if origin != .booster {
+            for taskId in allIds {
+                if solvedTaskIds.contains(taskId) { continue }
+                let reason = aiTaskIds.contains(taskId) ? "ai" : "skipped"
+                try? await APIClient.shared.requestVoid(.boosterAdd(
+                    taskId: taskId, topicId: topicId, reason: reason, questionPreview: ""
+                ))
+            }
         }
         if isUnlocked {
             try? await APIClient.shared.requestVoid(.streakRecord)

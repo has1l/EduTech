@@ -14,7 +14,7 @@ enum Route: Hashable {
     case diagnosticResult
     case sessionPath
     case task(id: UUID, queue: [UUID], total: Int, all: [UUID], origin: TaskOrigin)
-    case taskSession(allIds: [UUID], topicId: UUID?, origin: TaskOrigin)
+    case taskSession(allIds: [UUID], topicId: UUID?, origin: TaskOrigin, initialPage: Int)
     case profile
     case progress
     case booster
@@ -24,14 +24,41 @@ enum Route: Hashable {
 @Observable
 final class Router {
     var path = NavigationPath()
+    var boosterPath = NavigationPath()
     var rootTab: RootTab = .home
 
-    func push(_ route: Route) { path.append(route) }
-    func pop() { if !path.isEmpty { path.removeLast() } }
-    func popToRoot() { path = NavigationPath() }
+    func push(_ route: Route) {
+        switch rootTab {
+        case .booster: boosterPath.append(route)
+        default: path.append(route)
+        }
+    }
+
+    func pop() {
+        switch rootTab {
+        case .booster:
+            if !boosterPath.isEmpty { boosterPath.removeLast() }
+        default:
+            if !path.isEmpty { path.removeLast() }
+        }
+    }
+
+    func popToRoot() {
+        switch rootTab {
+        case .booster: boosterPath = NavigationPath()
+        default: path = NavigationPath()
+        }
+    }
+
     func replace(with route: Route) {
-        path = NavigationPath()
-        path.append(route)
+        switch rootTab {
+        case .booster:
+            boosterPath = NavigationPath()
+            boosterPath.append(route)
+        default:
+            path = NavigationPath()
+            path.append(route)
+        }
     }
 }
 

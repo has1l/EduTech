@@ -196,7 +196,7 @@ struct SessionPathView: View {
                 .subtopicSession(topicId: node.topicId, count: 5)
             )
             guard !session.tasks.isEmpty else { return }
-            router.push(.taskSession(allIds: session.tasks.map(\.id), topicId: node.topicId, origin: .session))
+            router.push(.taskSession(allIds: session.tasks.map(\.id), topicId: node.topicId, origin: .session, initialPage: 0))
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription
         }

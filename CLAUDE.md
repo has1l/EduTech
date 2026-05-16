@@ -1299,7 +1299,174 @@ if body.redirect_uri and body.redirect_uri not in allowed:
 
 ---
 
-## 23. Стиль работы
+## 23. iOS — диагностика (DiagnosticView)
+
+### Архитектура
+
+`DiagnosticView.swift` — один файл, три компонента:
+- `DiagnosticVM` (`@Observable @MainActor`) — вся логика (start/submit)
+- `DiagnosticView` — intro + quiz фазы
+- `DiagnosticResultView` — экран результатов (отдельный route)
+
+### Фазы DiagnosticVM
+
+```swift
+enum Phase { case intro, loading, quiz, submitting }
+```
+
+- `intro` / `loading` → показывается `introView` (ScrollView с тремя инфо-карточками)
+- `quiz` / `submitting` → показывается `quizSession` (TabView-свайп)
+
+### Quiz — TabView свайп
+
+`quizSession` — точная копия паттерна `TaskSessionHost`:
+```
+VStack {
+    quizTopBar      // [X]  [диагностические точки]  [Отправить]
+    quizProgressBar // прогресс по answeredCount / total
+    Divider()
+    ZStack {
+        TabView(selection: pageBinding) { DiagnosticTaskPage × 12 }
+        swipeHintOverlay  // показывается один раз
+    }
+}
+.toolbar(.hidden, for: .navigationBar)
+```
+
+**Top bar:** X → `router.pop()`, точки (`DiagnosticDots`), кнопка «Отправить» (жёлтая если `answeredCount > 0`).
+
+**DiagnosticTaskPage** — отдельный `private struct`:
+- Карточка задачи: `TaskImage` + `MathText`
+- Поле ввода ответа (`TextField`), `@FocusState` управляется вручную (НЕ автофокус при свайпе)
+- Метка «Ответ сохранён ✓» появляется когда поле непустое
+- **Нет AI**: никаких кнопок «Помоги разобрать», никакого диалога
+
+**DiagnosticDots** — `private struct`, отдельный от `SessionDots` (в TaskSessionHost):
+- Серый = нет ответа, зелёный (appSuccess) = есть ответ, чёрный (appFg) = текущий
+- Скользящее окно из 7 точек, крайние — `opacity 0.35`
+- Отдельный ключ `AppDefaults.didShowDiagnosticSwipeHint` — не зависит от `didShowSwipeHint` из TaskSessionHost
+
+### Отправка и результат
+
+После `POST /diagnostic/submit`:
+- Вычисляет `currentScore` (как на вебе: ОГЭ 3/4/5, ЕГЭ 30/50/70/85)
+- `PATCH /users/me` с `currentScore`
+- `appState.fetchMe()` — обновляет `diagnosticCompletedAt`
+- `appState.lastDiagnosticResult = result`
+- `router.replace(with: .diagnosticResult)` → `DiagnosticResultView`
+
+**`DiagnosticResultView`** читает `appState.lastDiagnosticResult`. Показывает:
+- Трофей + счёт (X/12) + вердикт (4 уровня по % правильных)
+- Таблица по заданиям: цветной номер, название темы, ✓/✗ + правильный ответ
+- Блоки «Слабые места» и «Сильные стороны»
+- «Начать обучение по плану» → `router.popToRoot()`
+- «Пройти заново» → `router.replace(with: .diagnostic)`
+
+### Ключевые исправления (баги)
+
+**`DiagnosticSession.sessionId: String`** (не UUID):
+- Бэкенд возвращает `"diag:<user_uuid>:<hex8>"` — это не валидный UUID
+- Модель в `Models.swift` должна использовать `String`, иначе декодинг падает
+
+**Endpoint.diagnosticSubmit**:
+- Старая версия принимала только `sessionId: UUID` — неправильно
+- Правильная сигнатура: `(sessionId: String, answers: [(taskId: UUID, answer: String)])`
+- Нет эндпоинтов `/diagnostic/answer` и `/diagnostic/result` — их не существует на бэкенде
+
+**Автофокус клавиатуры при свайпе**:
+- `onAppear { focused = true }` внутри `DiagnosticTaskPage` вызывается при каждом TabView-переходе
+- Решение: убрать `onAppear` автофокус, пользователь тапает поле сам
+
+### Новые файлы/изменения
+
+- `Features/Diagnostic/DiagnosticView.swift` — полная реализация (~500 строк)
+- `Core/Network/Endpoint.swift` — исправлен `diagnosticSubmit`
+- `Models/Models.swift` — `DiagnosticSession.sessionId: String`
+- `App/AppState.swift` — добавлено `var lastDiagnosticResult: DiagnosticResult?`
+- `Core/Storage/AppDefaults.swift` — добавлен `didShowDiagnosticSwipeHint`
+
+### Иконка приложения
+
+`AppIcon-1024.png` — золотая 3D ДНК-спираль, 1024×1024 PNG.
+`Assets.xcassets/AppIcon.appiconset/Contents.json` — все три варианта (universal, dark, tinted) ссылаются на один файл.
+
+---
+
+## 24. iOS — бустер (BoosterListView)
+
+### Архитектура
+
+`BoosterListView` — экран вкладки «Бустер». Данные из `GET /booster` + `GET /sessions/path` (для имён подтем).
+
+**Структура:**
+- `List` с `Section`-ами, сгруппированными по номеру задания (1–12)
+- Заголовок секции: цветной кружок с номером (зелёный/жёлтый/красный по difficulty) + название темы + счётчик
+- Жёлтая кнопка «Начать повторение · N заданий» → открывает ВСЕ бустер-задачи как `TaskSessionHost` с `initialPage: 0`
+- Тап на строку → открывает ВСЕ задачи группы (того же task_number), начиная с позиции тапнутой задачи → кружок тапнутой задачи центрирован в точках наверху
+- Свайп влево по строке → `DELETE /booster/{task_id}` (оптимистичное удаление)
+- Pull-to-refresh
+
+**Данные:**
+```swift
+@State private var items: [BoosterItem] = []
+@State private var nodesMap: [UUID: PathNode] = [:]   // topicId → PathNode
+@State private var pathSections: [TaskSection] = []    // для названий и difficulty секций
+```
+`appState.boosterCount` обновляется после каждого `load()` и `delete()`.
+
+### Навигация — отдельный path для вкладки
+
+**Проблема:** `router.push()` добавлял в `router.path` (вкладка «Курс»), задания открывались не в той вкладке.
+
+**Решение:** в `Router` добавлен `var boosterPath = NavigationPath()`. Методы `push/pop/popToRoot/replace` переключаются по `rootTab`:
+
+```swift
+func push(_ route: Route) {
+    switch rootTab {
+    case .booster: boosterPath.append(route)
+    default: path.append(route)
+    }
+}
+```
+
+Вкладка Бустера привязана к `boosterPath`:
+```swift
+Tab("Бустер", ..., value: RootTab.booster) {
+    NavigationStack(path: $router.boosterPath) {
+        BoosterListView().navigationDestinationsForApp()
+    }
+}
+```
+
+### initialPage в TaskSessionHost
+
+`Route.taskSession` получил параметр `initialPage: Int`. `TaskSessionHost.init` инициализирует `_currentPage = State(initialValue: min(initialPage, allIds.count - 1))`.
+
+При тапе на строку в бустере:
+```swift
+let idx = group.items.firstIndex(where: { $0.taskId == item.taskId }) ?? 0
+router.push(.taskSession(allIds: group.items.map(\.taskId), topicId: nil, origin: .booster, initialPage: idx))
+```
+
+Кнопка "+" (загрузить ещё задания) скрыта для `origin == .booster`:
+```swift
+if topicId != nil && origin != .booster { /* показать "+" */ }
+```
+
+### Интеграция с бэкендом
+
+- `GET /booster/count` → `appState.boosterCount` → бейдж на вкладке Бустера
+- Бейдж загружается при старте приложения в `MainTabsView.task`
+- При верном ответе с `origin == .booster` → `TaskVM` вызывает `DELETE /booster/{task_id}` в фоне
+- `TaskSessionHost.finishSession()` с `origin == .booster` НЕ добавляет нерешённые задачи в бустер (они там уже есть)
+
+### Переименование вкладки
+
+Вкладка «Сегодня» переименована в **«Курс»** с иконкой `graduationcap.fill`.
+
+---
+
+## 25. Стиль работы
 
 - Общение с пользователем (Родион) на русском, неформально, коротко
 - Не писать комментариев в коде «что делает функция» — имена должны говорить сами

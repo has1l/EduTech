@@ -7,6 +7,14 @@ final class AppState {
     var showLoginFlow = false
     var isAuthenticating = false
     var bootstrapError: String?
+    var lastDiagnosticResult: DiagnosticResult?
+    var boosterCount: Int = 0
+
+    func fetchBoosterCount() async {
+        if let c: BoosterCount = try? await APIClient.shared.request(.boosterCount) {
+            boosterCount = c.count
+        }
+    }
 
     var isAuthenticated: Bool { currentUser != nil }
     var needsOnboarding: Bool {

@@ -10,11 +10,17 @@ enum AppDefaults {
         static let didOnboard = "did_onboard"
         static let lastKnownStreak = "last_known_streak"
         static let didShowSwipeHint = "did_show_swipe_hint"
+        static let didShowDiagnosticSwipeHint = "did_show_diagnostic_swipe_hint"
     }
 
     static var didShowSwipeHint: Bool {
         get { defaults.bool(forKey: Key.didShowSwipeHint) }
         set { defaults.set(newValue, forKey: Key.didShowSwipeHint) }
+    }
+
+    static var didShowDiagnosticSwipeHint: Bool {
+        get { defaults.bool(forKey: Key.didShowDiagnosticSwipeHint) }
+        set { defaults.set(newValue, forKey: Key.didShowDiagnosticSwipeHint) }
     }
 
     static var anonymousEmail: String? {

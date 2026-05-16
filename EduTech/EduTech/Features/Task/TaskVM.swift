@@ -113,6 +113,11 @@ final class TaskVM {
                 Task.detached(priority: .background) {
                     try? await APIClient.shared.requestVoid(.kbAdd(taskId: task.id, topicId: task.topicId))
                 }
+                if origin == .booster {
+                    Task.detached(priority: .background) {
+                        try? await APIClient.shared.requestVoid(.boosterRemove(task.id))
+                    }
+                }
                 if let dlg = result.dialogueId { _ = dlg }
             } else {
                 failedPositions.insert(currentPosition)

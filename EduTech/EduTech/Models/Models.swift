@@ -161,7 +161,7 @@ struct PlanOut: Decodable {
 // MARK: - Diagnostic
 
 struct DiagnosticSession: Decodable {
-    let sessionId: UUID
+    let sessionId: String   // "diag:<user_id>:<hex8>" — not a UUID
     let tasks: [EduTask]
 }
 

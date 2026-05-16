@@ -22,9 +22,9 @@ LEVELS = [
 
 def _get_level(count: int) -> dict:
     level = LEVELS[0]
-    for l in LEVELS:
-        if count >= l["min"]:
-            level = l
+    for lvl in LEVELS:
+        if count >= lvl["min"]:
+            level = lvl
     return level
 
 

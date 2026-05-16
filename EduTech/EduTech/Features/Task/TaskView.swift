@@ -70,6 +70,14 @@ struct TaskView: View {
                 withAnimation(.spring(duration: 0.3)) { activeTab = .tutor }
             }
         }
+        .gesture(
+            DragGesture(minimumDistance: 60)
+                .onEnded { value in
+                    guard abs(value.translation.height) < abs(value.translation.width) else { return }
+                    if value.translation.width < 0 { skipTask() }   // swipe left → skip
+                    else { router.pop() }                            // swipe right → back to session
+                }
+        )
     }
 
     // MARK: - Progress bar
@@ -82,8 +90,23 @@ struct TaskView: View {
                     .font(.caption.bold())
                     .foregroundStyle(s >= 5 ? Color.appSuccess : Color.appMuted)
                 Spacer()
-                Text("Задача \(vm.currentPosition) из \(vm.total)")
-                    .font(.caption).foregroundStyle(Color.appMuted)
+                HStack(spacing: 12) {
+                    Button { router.pop() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.caption.bold())
+                            .foregroundStyle(Color.appMuted)
+                    }
+                    .buttonStyle(.plain)
+                    Text("Задача \(vm.currentPosition) из \(vm.total)")
+                        .font(.caption).foregroundStyle(Color.appMuted)
+                    Button { skipTask() } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.caption.bold())
+                            .foregroundStyle(vm.hasNext ? Color.appFg : Color.appMuted.opacity(0.4))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!vm.hasNext)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 6)
@@ -346,6 +369,21 @@ struct TaskView: View {
             }
         default:
             EmptyView()
+        }
+    }
+
+    private func skipTask() {
+        guard vm.hasNext, let nextId = vm.queue.first else { return }
+        Task {
+            if let task = vm.task {
+                try? await APIClient.shared.requestVoid(.boosterAdd(
+                    taskId: task.id, topicId: task.topicId, reason: "skipped",
+                    questionPreview: String(task.questionText.prefix(80))
+                ))
+            }
+            let newQueue = Array(vm.queue.dropFirst())
+            router.path.removeLast()
+            router.path.append(Route.task(id: nextId, queue: newQueue, total: vm.total, all: vm.allIds, origin: vm.origin))
         }
     }
 

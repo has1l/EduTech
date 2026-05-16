@@ -29,6 +29,10 @@ _EGE_SUBJECT_ID = 19
 _EGE_SUBJECT_CODE = "math_ege"
 _EGE_SUBJECT_TITLE = "Математика ЕГЭ (Профильная)"
 
+_OGE_SUBJECT_ID = 27
+_OGE_SUBJECT_CODE = "math_oge"
+_OGE_SUBJECT_TITLE = "Математика ОГЭ"
+
 # Section metadata: title and difficulty level (1=green 2=yellow 3=red)
 TASK_SECTIONS: dict[int, dict] = {
     1:  {"title": "Простейшая планиметрия",         "difficulty": 1},
@@ -136,6 +140,84 @@ ALL_EGE_SUBTOPICS = [
     {"bank_ege_topic_id": 2446, "code": "12.3", "title": "Дробно-рациональная функция",                       "exam_task_number": 12},
     {"bank_ege_topic_id": 2447, "code": "12.4", "title": "Тригонометрическая функция",                        "exam_task_number": 12},
     {"bank_ege_topic_id": 2448, "code": "12.5", "title": "Функция с экспонентой",                             "exam_task_number": 12},
+]
+
+# OGE task sections metadata (tasks 6–19, tasks 1–5 have insufficient data)
+OGE_TASK_SECTIONS: dict[int, dict] = {
+    6:  {"title": "Дроби",                              "difficulty": 1},
+    7:  {"title": "Числа",                              "difficulty": 1},
+    8:  {"title": "Алгебраические выражения",           "difficulty": 2},
+    9:  {"title": "Уравнения",                          "difficulty": 2},
+    10: {"title": "Теория вероятностей",                "difficulty": 2},
+    11: {"title": "Функции и графики",                  "difficulty": 2},
+    12: {"title": "Прикладные задачи",                  "difficulty": 2},
+    13: {"title": "Неравенства",                        "difficulty": 2},
+    14: {"title": "Прогрессии",                         "difficulty": 2},
+    15: {"title": "Треугольники",                       "difficulty": 2},
+    16: {"title": "Окружности",                         "difficulty": 3},
+    17: {"title": "Четырёхугольники",                   "difficulty": 3},
+    18: {"title": "Фигуры на плоскости",                "difficulty": 3},
+    19: {"title": "Анализ высказываний",                "difficulty": 3},
+}
+
+ALL_OGE_SUBTOPICS = [
+    # Задание 6 — Дроби
+    {"bank_ege_topic_id": 1932, "code": "6.1",  "title": "Действия с обыкновенными дробями",         "exam_task_number": 6},
+    # Задание 7 — Числа
+    {"bank_ege_topic_id": 1955, "code": "7.1",  "title": "Числа на прямой",                           "exam_task_number": 7},
+    # Задание 8 — Выражения
+    {"bank_ege_topic_id": 1956, "code": "8.1",  "title": "Иррациональные числа и выражения",          "exam_task_number": 8},
+    {"bank_ege_topic_id": 1957, "code": "8.2",  "title": "Рациональные алгебраические выражения",     "exam_task_number": 8},
+    # Задание 9 — Уравнения
+    {"bank_ege_topic_id": 1928, "code": "9.1",  "title": "Линейные уравнения",                        "exam_task_number": 9},
+    {"bank_ege_topic_id": 1930, "code": "9.2",  "title": "Дробно-рациональные уравнения",             "exam_task_number": 9},
+    {"bank_ege_topic_id": 2056, "code": "9.3",  "title": "Неполные квадратные уравнения",             "exam_task_number": 9},
+    {"bank_ege_topic_id": 2057, "code": "9.4",  "title": "Полные квадратные уравнения",               "exam_task_number": 9},
+    # Задание 10 — Вероятность
+    {"bank_ege_topic_id": 2043, "code": "10.1", "title": "Теория вероятностей",                       "exam_task_number": 10},
+    # Задание 11 — Функции
+    {"bank_ege_topic_id": 1963, "code": "11.1", "title": "Линейные функции",                          "exam_task_number": 11},
+    {"bank_ege_topic_id": 1964, "code": "11.2", "title": "Параболы",                                  "exam_task_number": 11},
+    {"bank_ege_topic_id": 1965, "code": "11.3", "title": "Гиперболы",                                 "exam_task_number": 11},
+    {"bank_ege_topic_id": 1966, "code": "11.4", "title": "Функции",                                   "exam_task_number": 11},
+    # Задание 12 — Прикладные задачи
+    {"bank_ege_topic_id": 2059, "code": "12.1", "title": "Экономика",                                 "exam_task_number": 12},
+    {"bank_ege_topic_id": 2060, "code": "12.2", "title": "Физика",                                    "exam_task_number": 12},
+    {"bank_ege_topic_id": 2061, "code": "12.3", "title": "Математика",                                "exam_task_number": 12},
+    # Задание 13 — Неравенства
+    {"bank_ege_topic_id": 1967, "code": "13.1", "title": "Линейные неравенства",                      "exam_task_number": 13},
+    {"bank_ege_topic_id": 1968, "code": "13.2", "title": "Квадратные неравенства",                    "exam_task_number": 13},
+    {"bank_ege_topic_id": 1969, "code": "13.3", "title": "Системы неравенств",                        "exam_task_number": 13},
+    # Задание 14 — Прогрессии
+    {"bank_ege_topic_id": 1970, "code": "14.1", "title": "Арифметическая прогрессия",                 "exam_task_number": 14},
+    {"bank_ege_topic_id": 1971, "code": "14.2", "title": "Геометрическая прогрессия",                 "exam_task_number": 14},
+    # Задание 15 — Треугольники
+    {"bank_ege_topic_id": 1972, "code": "15.1", "title": "Биссектриса, медиана",                      "exam_task_number": 15},
+    {"bank_ege_topic_id": 1973, "code": "15.2", "title": "Сумма углов треугольника",                  "exam_task_number": 15},
+    {"bank_ege_topic_id": 1974, "code": "15.3", "title": "Площадь треугольника",                      "exam_task_number": 15},
+    {"bank_ege_topic_id": 1975, "code": "15.4", "title": "Подобные треугольники",                     "exam_task_number": 15},
+    {"bank_ege_topic_id": 1976, "code": "15.5", "title": "Теорема Пифагора",                          "exam_task_number": 15},
+    {"bank_ege_topic_id": 1977, "code": "15.6", "title": "Синус, косинус, тангенс острого угла",      "exam_task_number": 15},
+    {"bank_ege_topic_id": 1978, "code": "15.7", "title": "Теорема синусов и косинусов",               "exam_task_number": 15},
+    # Задание 16 — Окружности
+    {"bank_ege_topic_id": 1979, "code": "16.1", "title": "Касательная к окружности",                  "exam_task_number": 16},
+    {"bank_ege_topic_id": 1980, "code": "16.2", "title": "Центральные и вписанные углы",              "exam_task_number": 16},
+    {"bank_ege_topic_id": 1981, "code": "16.3", "title": "Вписанная окружность",                      "exam_task_number": 16},
+    {"bank_ege_topic_id": 1982, "code": "16.4", "title": "Описанная окружность",                      "exam_task_number": 16},
+    {"bank_ege_topic_id": 1983, "code": "16.5", "title": "Теорема синусов (окружность)",              "exam_task_number": 16},
+    {"bank_ege_topic_id": 2241, "code": "16.6", "title": "Длина окружности и площадь круга",          "exam_task_number": 16},
+    # Задание 17 — Четырёхугольники
+    {"bank_ege_topic_id": 1984, "code": "17.1", "title": "Параллелограмм",                            "exam_task_number": 17},
+    {"bank_ege_topic_id": 1985, "code": "17.2", "title": "Трапеция",                                  "exam_task_number": 17},
+    {"bank_ege_topic_id": 1986, "code": "17.3", "title": "Прямоугольник",                             "exam_task_number": 17},
+    {"bank_ege_topic_id": 1987, "code": "17.4", "title": "Ромб",                                      "exam_task_number": 17},
+    {"bank_ege_topic_id": 1988, "code": "17.5", "title": "Площадь четырёхугольников",                 "exam_task_number": 17},
+    # Задание 18 — Фигуры
+    {"bank_ege_topic_id": 1990, "code": "18.1", "title": "Расстояние и длина",                        "exam_task_number": 18},
+    {"bank_ege_topic_id": 1993, "code": "18.2", "title": "Площадь",                                   "exam_task_number": 18},
+    {"bank_ege_topic_id": 2875, "code": "18.3", "title": "Средняя линия",                             "exam_task_number": 18},
+    # Задание 19 — Анализ высказываний
+    {"bank_ege_topic_id": 2034, "code": "19.1", "title": "Анализ геометрических высказываний",        "exam_task_number": 19},
 ]
 
 
@@ -396,10 +478,227 @@ async def fetch_and_store_ege_variant(db) -> list[Task]:
     return result
 
 
-# Legacy: fetch a full OGE variant (kept for backward compat, unused in new flow)
-_OGE_SUBJECT_ID = 27
-_OGE_SUBJECT_CODE = "math_oge"
-_OGE_SUBJECT_TITLE = "Математика ОГЭ"
+async def ensure_oge_subtopics_seeded() -> None:
+    """Creates the OGE subject and all task 6–19 subtopics in DB if they don't exist."""
+    async with SessionLocal() as db:
+        try:
+            subj = await db.scalar(select(Subject).where(Subject.code == _OGE_SUBJECT_CODE))
+            if subj is None:
+                subj = Subject(id=uuid4(), code=_OGE_SUBJECT_CODE, title=_OGE_SUBJECT_TITLE)
+                db.add(subj)
+                await db.flush()
+
+            subject_id: UUID = subj.id
+
+            for st in ALL_OGE_SUBTOPICS:
+                existing = await db.scalar(
+                    select(Topic).where(
+                        Topic.subject_id == subject_id,
+                        Topic.bank_ege_topic_id == st["bank_ege_topic_id"],
+                    )
+                )
+                if existing is None:
+                    db.add(Topic(
+                        id=uuid4(),
+                        subject_id=subject_id,
+                        code=st["code"],
+                        title=st["title"],
+                        weight_in_exam=1.0,
+                        difficulty=2,
+                        exam_task_number=st["exam_task_number"],
+                        bank_ege_topic_id=st["bank_ege_topic_id"],
+                    ))
+
+            await db.commit()
+            log.info("OGE subtopics seeded (tasks 6–19)")
+        except Exception as exc:
+            log.exception("OGE subtopics seed failed: %s", exc)
+            await db.rollback()
+
+
+async def fetch_tasks_for_oge_subtopic(
+    bank_ege_topic_id: int,
+    topic_id: UUID,
+    needed: int = 10,
+) -> int:
+    """Fetches tasks for a specific OGE subtopic from bank-ege.ru. Uses oge_ prefix."""
+    async with httpx.AsyncClient(headers=_HEADERS, timeout=20) as client:
+        try:
+            r = await client.get(
+                f"{_API}/ege/exam_tasks",
+                params={"exam_topic_id": bank_ege_topic_id, "is_obsolete": 0},
+            )
+            r.raise_for_status()
+            payload = r.json()
+        except Exception as exc:
+            log.warning("bank-ege OGE exam_tasks fetch failed: %s", exc)
+            return 0
+
+    raw_tasks = payload.get("data", []) if isinstance(payload, dict) else payload
+    if not isinstance(raw_tasks, list) or not raw_tasks:
+        return 0
+
+    random.shuffle(raw_tasks)
+
+    async with SessionLocal() as db:
+        try:
+            rows = await db.scalars(select(Task.source_id).where(Task.source_id.isnot(None)))
+            existing_ids: set[str] = set(rows.all())
+
+            inserted = 0
+            for t in raw_tasks:
+                if inserted >= needed:
+                    break
+
+                src_id = f"oge_{t.get('id', '')}"
+                if not src_id or src_id in existing_ids:
+                    continue
+
+                q = t.get("task_question") or {}
+                answers = q.get("answers") or []
+                correct = str(answers[0].get("answer", "")).strip() if answers else ""
+                if not correct:
+                    continue
+
+                html = q.get("description") or ""
+                question_text = _strip_html(html)
+                image_url = _extract_image(html)
+                if len(question_text) < 15 and not image_url:
+                    continue
+                if (question_text.endswith("...") or question_text.endswith("…")) and not image_url:
+                    continue
+
+                solution = _strip_html(t.get("comment") or "")
+                db.add(Task(
+                    id=uuid4(),
+                    topic_id=topic_id,
+                    type="short_answer",
+                    question_text=question_text,
+                    question_image_url=image_url,
+                    options=None,
+                    correct_answer=correct,
+                    solution_steps={"steps": [solution]} if solution else None,
+                    typical_errors=None,
+                    theory_section_ids=[],
+                    difficulty=2,
+                    source_id=src_id,
+                ))
+                existing_ids.add(src_id)
+                inserted += 1
+
+            if inserted:
+                await db.commit()
+                log.info("bank-ege OGE subtopic %d: inserted %d tasks", bank_ege_topic_id, inserted)
+            return inserted
+
+        except Exception as exc:
+            log.exception("bank-ege OGE subtopic DB store failed: %s", exc)
+            await db.rollback()
+            return 0
+
+
+# OGE diagnostic variants (confirmed to have tasks 6–19)
+_OGE_DIAGNOSTIC_VARIANT_UUIDS = [
+    "25c70d95-daac-4506-b799-fa49af5ade12",
+    "71d38a95-e661-4f5b-85f8-f4695a7f4fe8",
+]
+
+
+async def fetch_and_store_oge_variant(db) -> list[Task]:
+    """
+    Picks a random OGE variant, imports tasks 6–19 to DB, returns Task list ordered by task number.
+    """
+    variant_uuid = random.choice(_OGE_DIAGNOSTIC_VARIANT_UUIDS)
+
+    async with httpx.AsyncClient(headers=_HEADERS, timeout=20) as client:
+        try:
+            r = await client.get(f"{_API}/ege/exam_variants/{variant_uuid}/tasks")
+            r.raise_for_status()
+            raw_tasks = r.json()
+        except Exception as exc:
+            log.warning("bank-ege OGE variant fetch failed: %s", exc)
+            return []
+
+    if not isinstance(raw_tasks, list):
+        return []
+
+    # Filter tasks 6–19 with answers, deduplicate by number
+    seen: dict[int, dict] = {}
+    for t in raw_tasks:
+        n = t.get("number", 99)
+        if 6 <= n <= 19 and (t.get("task_question") or {}).get("answers") and n not in seen:
+            seen[n] = t
+
+    subj = await db.scalar(select(Subject).where(Subject.code == _OGE_SUBJECT_CODE))
+    if subj is None:
+        return []
+
+    topic_rows = await db.scalars(select(Topic).where(Topic.subject_id == subj.id))
+    # Map exam_task_number → first topic for that number
+    topic_by_task_num: dict[int, Topic] = {}
+    for t in topic_rows.all():
+        if t.exam_task_number is not None and t.exam_task_number not in topic_by_task_num:
+            topic_by_task_num[t.exam_task_number] = t
+
+    rows = await db.scalars(select(Task.source_id).where(Task.source_id.isnot(None)))
+    existing_src: set[str] = set(rows.all())
+
+    result: list[Task] = []
+    new_added = False
+
+    for task_num in sorted(seen.keys()):
+        raw = seen[task_num]
+        src_id = f"oge_{raw['id']}"
+
+        if src_id in existing_src:
+            existing = await db.scalar(select(Task).where(Task.source_id == src_id))
+            if existing:
+                result.append(existing)
+                continue
+
+        q = raw.get("task_question") or {}
+        answers = q.get("answers") or []
+        correct = str(answers[0].get("answer", "")).strip() if answers else ""
+        if not correct:
+            continue
+
+        html = q.get("description") or ""
+        question_text = _strip_html(html)
+        image_url = _extract_image(html)
+        if len(question_text) < 5 and not image_url:
+            continue
+
+        topic = topic_by_task_num.get(task_num)
+        if topic is None:
+            continue
+
+        solution = _strip_html(raw.get("comment") or "")
+        new_task = Task(
+            id=uuid4(),
+            topic_id=topic.id,
+            type="short_answer",
+            question_text=question_text,
+            question_image_url=image_url,
+            options=None,
+            correct_answer=correct,
+            solution_steps={"steps": [solution]} if solution else None,
+            typical_errors=None,
+            theory_section_ids=[],
+            difficulty=2,
+            source_id=src_id,
+        )
+        db.add(new_task)
+        existing_src.add(src_id)
+        result.append(new_task)
+        new_added = True
+
+    if new_added:
+        await db.flush()
+
+    return result
+
+
+# Legacy: fetch OGE tasks via variants (kept for backward compat, unused in new flow)
 _USED_VARIANTS_KEY = "bank_ege:used_variants"
 
 

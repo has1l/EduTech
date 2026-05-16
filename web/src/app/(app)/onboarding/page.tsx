@@ -70,7 +70,7 @@ export default function OnboardingPage() {
   const mutation = useUpdateProfile();
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { grade: 11, target_score: 80, exam_year: currentYear },
+    defaultValues: { grade: 11, target_score: 65, exam_year: currentYear },
   });
 
   const grade = form.watch("grade");
@@ -78,14 +78,14 @@ export default function OnboardingPage() {
 
   function handleGradeChange(g: 9 | 11) {
     form.setValue("grade", g);
-    form.setValue("target_score", g === 9 ? 4 : 80);
+    form.setValue("target_score", g === 9 ? 4 : 65);
   }
 
   const egeTargetOptions = [
-    { value: 60, label: "60+", sub: "Хорошо" },
-    { value: 75, label: "75+", sub: "Отлично" },
-    { value: 85, label: "85+", sub: "Высокий" },
-    { value: 95, label: "95+", sub: "Топ" },
+    { value: 40, label: "40+", sub: "Начало" },
+    { value: 55, label: "55+", sub: "Хорошо" },
+    { value: 65, label: "65+", sub: "Отлично" },
+    { value: 70, label: "70",  sub: "Максимум" },
   ] as const;
 
   const onSubmit = form.handleSubmit(async (v) => {
@@ -140,11 +140,16 @@ export default function OnboardingPage() {
               {isOge ? (
                 <ScoreButtons value={field.value} onChange={field.onChange} options={OGE_SCORES} />
               ) : (
-                <ScoreButtons
-                  value={field.value}
-                  onChange={field.onChange}
-                  options={egeTargetOptions}
-                />
+                <>
+                  <ScoreButtons
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={egeTargetOptions}
+                  />
+                  <p className="mt-2 text-xs text-muted">
+                    Сейчас мы охватываем Часть 1 (задания 1–12). Максимум за неё — 70 тестовых баллов.
+                  </p>
+                </>
               )}
             </div>
           )}

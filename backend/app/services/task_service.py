@@ -16,9 +16,12 @@ from app.models.theory import TheorySection
 from app.models.topic import Topic
 from app.schemas.tasks import AnswerResult, PathNodeOut, SessionPathOut, TaskOut, TaskSection, TodaySession
 from app.services.bank_ege_client import (
+    OGE_TASK_SECTIONS,
     TASK_SECTIONS,
     _EGE_SUBJECT_CODE,
+    _OGE_SUBJECT_CODE,
     fetch_and_store_tasks,
+    fetch_tasks_for_oge_subtopic,
     fetch_tasks_for_subtopic,
 )
 
@@ -73,12 +76,16 @@ async def process_answer(
 
 
 async def get_session_path(user, db: AsyncSession) -> SessionPathOut:
-    """Returns EGE tasks 1–12 subtopic path grouped into sections with per-section unlocking."""
+    """Returns subtopic path grouped into sections with per-section unlocking. Supports both EGE and OGE."""
     from collections import defaultdict
 
     from app.models.subject import Subject
 
-    subj = await db.scalar(select(Subject).where(Subject.code == _EGE_SUBJECT_CODE))
+    is_oge = (getattr(user, "grade", None) or 11) <= 9
+    subject_code = _OGE_SUBJECT_CODE if is_oge else _EGE_SUBJECT_CODE
+    sections_meta = OGE_TASK_SECTIONS if is_oge else TASK_SECTIONS
+
+    subj = await db.scalar(select(Subject).where(Subject.code == subject_code))
     if subj is None:
         return SessionPathOut(sections=[])
 
@@ -117,7 +124,7 @@ async def get_session_path(user, db: AsyncSession) -> SessionPathOut:
     sections: list[TaskSection] = []
     for task_num in sorted(by_task.keys()):
         group = by_task[task_num]
-        meta = TASK_SECTIONS.get(task_num, {"title": f"Задание {task_num}", "difficulty": 2})
+        meta = sections_meta.get(task_num, {"title": f"Задание {task_num}", "difficulty": 2})
         found_current = False
         nodes: list[PathNodeOut] = []
 
@@ -159,9 +166,14 @@ async def get_random_tasks_for_topic(
     db: AsyncSession,
     count: int = 5,
 ) -> list[Task]:
+    from app.models.subject import Subject
+
     topic = await db.get(Topic, topic_id)
     if topic is None:
         return []
+
+    subj = await db.get(Subject, topic.subject_id) if topic.subject_id else None
+    is_oge = subj.code == _OGE_SUBJECT_CODE if subj else False
 
     # Tasks user already answered correctly for this topic
     done_correctly = await db.scalars(
@@ -182,12 +194,19 @@ async def get_random_tasks_for_topic(
 
     # Fetch from bank-ege if not enough tasks
     if len(pool) < count and topic.bank_ege_topic_id:
-        await fetch_tasks_for_subtopic(
-            bank_ege_topic_id=topic.bank_ege_topic_id,
-            exam_task_number=topic.exam_task_number or 1,
-            topic_id=topic_id,
-            needed=max(15, count * 3),
-        )
+        if is_oge:
+            await fetch_tasks_for_oge_subtopic(
+                bank_ege_topic_id=topic.bank_ege_topic_id,
+                topic_id=topic_id,
+                needed=max(15, count * 3),
+            )
+        else:
+            await fetch_tasks_for_subtopic(
+                bank_ege_topic_id=topic.bank_ege_topic_id,
+                exam_task_number=topic.exam_task_number or 1,
+                topic_id=topic_id,
+                needed=max(15, count * 3),
+            )
         available = await db.scalars(
             select(Task)
             .where(Task.topic_id == topic_id, Task.id.notin_(done_ids))
@@ -208,6 +227,8 @@ async def get_random_tasks_for_topic(
 
 
 async def get_today_session(user, db: AsyncSession, redis: Redis) -> TodaySession:
+    from app.models.subject import Subject
+
     cache_key = _today_key(user.id)
     cached = await redis.get(cache_key)
 
@@ -219,6 +240,12 @@ async def get_today_session(user, db: AsyncSession, redis: Redis) -> TodaySessio
     )
     done_ids = set(done_today.all())
 
+    is_oge = (getattr(user, "grade", None) or 11) <= 9
+    subject_code = _OGE_SUBJECT_CODE if is_oge else _EGE_SUBJECT_CODE
+
+    subj = await db.scalar(select(Subject).where(Subject.code == subject_code))
+    subj_id = subj.id if subj else None
+
     if cached:
         task_ids = json.loads(cached)
         tasks_q = await db.execute(select(Task).where(Task.id.in_(task_ids)))
@@ -229,16 +256,35 @@ async def get_today_session(user, db: AsyncSession, redis: Redis) -> TodaySessio
             cached = None
 
     if not cached:
-        available = await db.scalars(
-            select(Task).where(Task.id.notin_(done_ids)).limit(5)
-        )
-        tasks = list(available.all())
-
-        if len(tasks) < 5:
-            await fetch_and_store_tasks(redis, needed=15)
+        if subj_id:
+            available = await db.scalars(
+                select(Task)
+                .join(Topic, Topic.id == Task.topic_id)
+                .where(Task.id.notin_(done_ids), Topic.subject_id == subj_id)
+                .limit(5)
+            )
+        else:
             available = await db.scalars(
                 select(Task).where(Task.id.notin_(done_ids)).limit(5)
             )
+        tasks = list(available.all())
+
+        if len(tasks) < 5:
+            if is_oge:
+                await _fetch_oge_tasks_if_needed(db)
+            else:
+                await fetch_and_store_tasks(redis, needed=15)
+            if subj_id:
+                available = await db.scalars(
+                    select(Task)
+                    .join(Topic, Topic.id == Task.topic_id)
+                    .where(Task.id.notin_(done_ids), Topic.subject_id == subj_id)
+                    .limit(5)
+                )
+            else:
+                available = await db.scalars(
+                    select(Task).where(Task.id.notin_(done_ids)).limit(5)
+                )
             tasks = list(available.all())
 
         if tasks:
@@ -250,6 +296,27 @@ async def get_today_session(user, db: AsyncSession, redis: Redis) -> TodaySessio
         session_id=session_id,
         tasks=[TaskOut.model_validate(t) for t in tasks],
     )
+
+
+async def _fetch_oge_tasks_if_needed(db: AsyncSession) -> None:
+    """Fetch tasks for the first OGE subtopic that's short on tasks."""
+    from app.models.subject import Subject
+
+    subj = await db.scalar(select(Subject).where(Subject.code == _OGE_SUBJECT_CODE))
+    if subj is None:
+        return
+
+    topic = await db.scalar(
+        select(Topic)
+        .where(Topic.subject_id == subj.id, Topic.bank_ege_topic_id.isnot(None))
+        .limit(1)
+    )
+    if topic and topic.bank_ege_topic_id:
+        await fetch_tasks_for_oge_subtopic(
+            bank_ege_topic_id=topic.bank_ege_topic_id,
+            topic_id=topic.id,
+            needed=15,
+        )
 
 
 async def complete_session(session_id: str, user, db: AsyncSession) -> None:

@@ -112,7 +112,11 @@ function ScoreCard() {
             <p className="mt-3 text-xs text-muted leading-relaxed">{pred.explanation}</p>
           )}
 
-          {!isOge && (
+          {isOge ? (
+            <p className="mt-2 text-[11px] text-muted/60">
+              Прогноз по заданиям 6–19 (задания 1–5 пока не охвачены системой).
+            </p>
+          ) : (
             <p className="mt-2 text-[11px] text-muted/60">
               Прогноз по Части 1 (задания 1–12, максимум 70 баллов). Часть 2 не учитывается.
             </p>

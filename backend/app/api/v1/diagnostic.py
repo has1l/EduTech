@@ -16,7 +16,7 @@ from app.schemas.diagnostic import (
     SectionResult,
 )
 from app.schemas.tasks import TaskOut
-from app.services.bank_ege_client import TASK_SECTIONS, fetch_and_store_ege_variant
+from app.services.bank_ege_client import OGE_TASK_SECTIONS, TASK_SECTIONS, fetch_and_store_ege_variant, fetch_and_store_oge_variant
 from sqlalchemy import select
 
 router = APIRouter()
@@ -32,7 +32,15 @@ async def start_diagnostic(
     db: DbSession,
     redis: RedisClient,
 ) -> DiagnosticStartOut:
-    tasks = await fetch_and_store_ege_variant(db)
+    from app.models.user import User as UserModel
+    db_user = await db.get(UserModel, user.id)
+    is_oge = (getattr(db_user, "grade", None) or 11) <= 9
+
+    if is_oge:
+        tasks = await fetch_and_store_oge_variant(db)
+    else:
+        tasks = await fetch_and_store_ege_variant(db)
+
     if not tasks:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -99,7 +107,11 @@ async def submit_diagnostic(
 
         topic = await db.get(Topic, task.topic_id)
         task_num = topic.exam_task_number if topic else 0
-        meta = TASK_SECTIONS.get(task_num or 0, {"title": f"Задание {task_num}", "difficulty": 2})
+        meta = (
+            TASK_SECTIONS.get(task_num or 0)
+            or OGE_TASK_SECTIONS.get(task_num or 0)
+            or {"title": f"Задание {task_num}", "difficulty": 2}
+        )
 
         sections.append(
             SectionResult(

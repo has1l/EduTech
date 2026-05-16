@@ -10,7 +10,7 @@ from app.api.v1 import api_router
 from app.config import settings
 from app.core.db import close_db, init_db
 from app.core.redis import close_redis, init_redis
-from app.services.bank_ege_client import ensure_ege_subtopics_seeded
+from app.services.bank_ege_client import ensure_ege_subtopics_seeded, ensure_oge_subtopics_seeded
 
 
 if settings.sentry_dsn:
@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     await init_redis()
     await ensure_ege_subtopics_seeded()
+    await ensure_oge_subtopics_seeded()
     yield
     await close_redis()
     await close_db()

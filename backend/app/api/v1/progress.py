@@ -11,7 +11,7 @@ from app.config import settings
 from app.core.deps import CurrentUser, DbSession, RedisClient
 from app.models.progress import UserTopicProgress
 from app.models.topic import Topic
-from app.services.bank_ege_client import TASK_SECTIONS
+from app.services.bank_ege_client import OGE_TASK_SECTIONS, TASK_SECTIONS
 
 router = APIRouter()
 log = logging.getLogger(__name__)
@@ -68,8 +68,10 @@ async def _gpt_predict(
     days_left: int | None,
 ) -> tuple[int, int, str]:
     lines: list[str] = []
-    for tn in range(1, 13):
-        title = TASK_SECTIONS.get(tn, {}).get("title", f"Задание {tn}")
+    task_range = range(6, 20) if is_oge else range(1, 13)
+    sections_meta = OGE_TASK_SECTIONS if is_oge else TASK_SECTIONS
+    for tn in task_range:
+        title = sections_meta.get(tn, {}).get("title", f"Задание {tn}")
         m = mastery.get(tn, 0.0)
         s = stats.get(tn, {"correct": 0, "attempts": 0})
         lines.append(
@@ -82,15 +84,16 @@ async def _gpt_predict(
     if is_oge:
         prompt = f"""Ты эксперт по ОГЭ по математике.
 
-Шкала ОГЭ: оценка 3 = 8-14 первичных, 4 = 15-21, 5 = 22-31.
-Часть 1 (задания 1-19): до 19 первичных баллов. Ученик проходит задания 1-12.
+Шкала ОГЭ: оценка 3 = 8-14 первичных, 4 = 15-21, 5 = 22-31 (из 31 возможного).
+Ученик занимается заданиями 6-19 (14 из 19 заданий Части 1) в нашей системе.
 
 Прогресс ученика:
 {chr(10).join(lines)}
 
 Цель: оценка {target} | Дней до экзамена: {days_str}
 
-Рассчитай прогноз оценки (3/4/5). Верни ТОЛЬКО JSON:
+Рассчитай прогноз итоговой оценки (3/4/5), учитывая что задания 1-5 не охвачены системой.
+Верни ТОЛЬКО JSON:
 {{"by_plan": <3-5>, "if_nothing": <3-5>, "explanation": "<2-3 предложения, на 'ты'>"}}"""
     else:
         prompt = f"""Ты эксперт по ЕГЭ по профильной математике.

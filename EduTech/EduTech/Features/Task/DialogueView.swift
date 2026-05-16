@@ -174,6 +174,7 @@ struct DialogueView: View {
 
     private func messageBubble(_ message: DialogueMessage, isStreaming: Bool) -> some View {
         let isUser = message.role == "user"
+        let content = message.content.isEmpty && isStreaming ? "…" : message.content
         return HStack(alignment: .top, spacing: 10) {
             if !isUser {
                 MascotView(kind: isStreaming ? .thinking : .investigating, size: 36)
@@ -181,22 +182,40 @@ struct DialogueView: View {
             } else {
                 Spacer(minLength: 36)
             }
-            VStack(alignment: .leading, spacing: 6) {
-                Text(message.content.isEmpty && isStreaming ? "…" : message.content)
-                    .font(.body)
-                    .foregroundStyle(isUser ? Color.appAccentFg : Color.appFg)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(isUser ? Color.appAccent : Color.appBg)
-                    .overlay {
-                        if !isUser {
-                            RoundedRectangle(cornerRadius: 18).strokeBorder(Color.appBorder, lineWidth: 1)
-                        }
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
-                    .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
-            }
-            if isUser { } else { Spacer(minLength: 0) }
+            bubbleContent(content: content, isUser: isUser, isStreaming: isStreaming)
+            if !isUser { Spacer(minLength: 0) }
+        }
+    }
+
+    @ViewBuilder
+    private func bubbleContent(content: String, isUser: Bool, isStreaming: Bool) -> some View {
+        if isUser {
+            Text(content)
+                .font(.body)
+                .foregroundStyle(Color.appAccentFg)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Color.appAccent)
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        } else if isStreaming {
+            Text(content)
+                .font(.body)
+                .foregroundStyle(Color.appFg)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Color.appBg)
+                .overlay { RoundedRectangle(cornerRadius: 18).strokeBorder(Color.appBorder, lineWidth: 1) }
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            MathText(text: content, fontSize: 17)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Color.appBg)
+                .overlay { RoundedRectangle(cornerRadius: 18).strokeBorder(Color.appBorder, lineWidth: 1) }
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

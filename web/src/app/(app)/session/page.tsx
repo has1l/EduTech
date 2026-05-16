@@ -83,6 +83,10 @@ function PathNodeItem({
   const isCompleted = state === "completed";
   const isLocked = state === "locked";
 
+  const faceBg = isCurrent ? "bg-accent" : isCompleted ? "bg-success" : "bg-[#D6D6D6]";
+  const faceText = isCurrent ? "text-accent-fg" : isCompleted ? "text-white" : "text-[#9ca3af]";
+  const shadowBg = isCurrent ? "bg-[#a68a00]" : isCompleted ? "bg-[#0a7a52]" : "bg-[#ababab]";
+
   return (
     <div
       className="flex flex-col items-center"
@@ -91,31 +95,34 @@ function PathNodeItem({
       <button
         onClick={() => !isLocked && !loading && onTap(node)}
         disabled={isLocked || loading}
-        className={cn(
-          "group relative block rounded-full transition-transform duration-200",
-          isLocked ? "cursor-not-allowed" : "cursor-pointer",
-        )}
+        className={cn("group relative", isLocked ? "cursor-not-allowed" : "cursor-pointer")}
       >
+        {/* Pulsing ring for current */}
         {isCurrent && (
-          <span className="absolute inset-0 rounded-full bg-accent/30 animate-ping" />
+          <span className="absolute top-0 left-0 w-[72px] h-[72px] rounded-full bg-accent/30 animate-ping" />
         )}
-        <div
-          className={cn(
-            "relative flex h-[72px] w-[72px] items-center justify-center rounded-full transition-transform duration-200",
-            isCurrent
-              ? "bg-accent text-accent-fg shadow-[0_0_0_6px_hsl(var(--accent)/25)] group-hover:scale-105"
-              : isCompleted
-                ? "bg-success/20 border-2 border-success text-success group-hover:scale-105"
-                : "border-2 border-dashed border-border bg-bg text-muted/40",
-          )}
-        >
-          {isCurrent ? (
-            <Zap className="h-7 w-7 fill-current" />
-          ) : isCompleted ? (
-            <CheckCircle2 className="h-6 w-6" />
-          ) : (
-            <Lock className="h-5 w-5" />
-          )}
+
+        {/* 3D coin: shadow layer below + face layer on top */}
+        <div className="relative w-[72px] h-[77px]">
+          <div className={cn("absolute bottom-0 left-0 w-[72px] h-[72px] rounded-full", shadowBg)} />
+          <div
+            className={cn(
+              "absolute top-0 left-0 w-[72px] h-[72px] rounded-full flex items-center justify-center transition-transform duration-150",
+              faceBg,
+              faceText,
+              !isLocked && "group-hover:translate-y-[2px] group-active:translate-y-[4px]",
+            )}
+          >
+            {loading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : isCurrent ? (
+              <Zap className="h-7 w-7 fill-current" />
+            ) : isCompleted ? (
+              <CheckCircle2 className="h-6 w-6" />
+            ) : (
+              <Lock className="h-5 w-5" />
+            )}
+          </div>
         </div>
       </button>
 

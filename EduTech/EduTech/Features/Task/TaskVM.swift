@@ -1,13 +1,29 @@
 import Foundation
 import SwiftUI
 
-// Simple in-memory cache so subsequent tasks in the queue load instantly
+// Caches EduTask data so tasks load instantly after prefetch
 @MainActor
 final class TaskCache {
     static let shared = TaskCache()
     private var cache: [UUID: EduTask] = [:]
     func get(_ id: UUID) -> EduTask? { cache[id] }
     func set(_ id: UUID, task: EduTask) { cache[id] = task }
+}
+
+// Preserves TaskVM state (phase, answer, dialogue) across TabView page recycling
+@MainActor
+final class TaskVMCache {
+    static let shared = TaskVMCache()
+    private var cache: [UUID: TaskVM] = [:]
+
+    func getOrCreate(_ id: UUID, queue: [UUID], total: Int, allIds: [UUID], origin: TaskOrigin) -> TaskVM {
+        if let existing = cache[id] { return existing }
+        let vm = TaskVM(taskId: id, queue: queue, total: total, allIds: allIds, origin: origin)
+        cache[id] = vm
+        return vm
+    }
+
+    func clear() { cache.removeAll() }
 }
 
 enum Phase: Equatable {
@@ -50,7 +66,9 @@ final class TaskVM {
     }
 
     func load() async {
-        // Instant load from cache if already prefetched
+        // Already loaded — preserve current phase (dialogue, correct, etc.)
+        if task != nil { return }
+
         if let cached = TaskCache.shared.get(taskId) {
             task = cached
             answer = ""

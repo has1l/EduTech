@@ -70,6 +70,10 @@ struct TaskSessionHost: View {
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .onChange(of: currentPage) { _, _ in dismissHint() }
+        .onDisappear {
+            TaskVMCache.shared.clear()
+            DialogueVMCache.shared.clear()
+        }
     }
 
     // MARK: - Top bar

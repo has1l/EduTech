@@ -1,5 +1,21 @@
 import SwiftUI
 
+// Preserves dialogue messages and stream state across TabView page recycling
+@MainActor
+final class DialogueVMCache {
+    static let shared = DialogueVMCache()
+    private var cache: [UUID: DialogueVM] = [:]
+
+    func getOrCreate(_ id: UUID) -> DialogueVM {
+        if let existing = cache[id] { return existing }
+        let vm = DialogueVM(dialogueId: id)
+        cache[id] = vm
+        return vm
+    }
+
+    func clear() { cache.removeAll() }
+}
+
 @MainActor
 @Observable
 final class DialogueVM {
@@ -16,6 +32,8 @@ final class DialogueVM {
     }
 
     func start() async {
+        // Already started or streaming — don't reset state
+        guard messages.isEmpty && !isStreaming else { return }
         await loadExisting()
         if messages.last?.role != "assistant" || messages.isEmpty {
             startStream()
@@ -123,7 +141,7 @@ struct DialogueView: View {
     var showHeader: Bool = true
 
     init(dialogueId: UUID, showHeader: Bool = true) {
-        _vm = State(initialValue: DialogueVM(dialogueId: dialogueId))
+        _vm = State(initialValue: DialogueVMCache.shared.getOrCreate(dialogueId))
         self.showHeader = showHeader
     }
 
@@ -160,7 +178,6 @@ struct DialogueView: View {
         }
         .background(Color.appBg)
         .task { await vm.start() }
-        .onDisappear { vm.stop() }
     }
 
     private var header: some View {

@@ -32,7 +32,8 @@ struct TaskView: View {
          pageIndex: Int? = nil, onNext: (() -> Void)? = nil,
          onSolved: (() -> Void)? = nil, onSolvedWithAI: (() -> Void)? = nil,
          onFinish: (() -> Void)? = nil) {
-        _vm = State(initialValue: TaskVM(taskId: taskId, queue: queue, total: total, allIds: allIds, origin: origin))
+        _vm = State(initialValue: TaskVMCache.shared.getOrCreate(
+            taskId, queue: queue, total: total, allIds: allIds, origin: origin))
         self.pageIndex = pageIndex
         self.onNext = onNext
         self.onSolved = onSolved

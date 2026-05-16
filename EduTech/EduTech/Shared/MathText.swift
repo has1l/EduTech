@@ -1,7 +1,7 @@
 import SwiftUI
 import WebKit
 
-/// Renders text with LaTeX math (\(...\) and \[...\]) via KaTeX CDN.
+/// Renders text with LaTeX math (\(...\) and \[...\]) via bundled KaTeX (no CDN).
 /// Falls back to plain Text if no math markers detected.
 struct MathText: View {
     let text: String
@@ -34,6 +34,12 @@ private struct _MathWebView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(height: $height) }
 
+    // Points to the bundled KaTeX folder so scripts/fonts load from disk, no network needed
+    private static let katexBase: URL = {
+        Bundle.main.url(forResource: "katex.min", withExtension: "js")?
+            .deletingLastPathComponent() ?? Bundle.main.bundleURL
+    }()
+
     func makeUIView(context: Context) -> WKWebView {
         let wv = WKWebView()
         wv.navigationDelegate = context.coordinator
@@ -42,14 +48,14 @@ private struct _MathWebView: UIViewRepresentable {
         wv.scrollView.isScrollEnabled = false
         wv.scrollView.bounces = false
         context.coordinator.lastText = text
-        wv.loadHTMLString(html(text), baseURL: nil)
+        wv.loadHTMLString(html(text), baseURL: Self.katexBase)
         return wv
     }
 
     func updateUIView(_ wv: WKWebView, context: Context) {
         guard context.coordinator.lastText != text else { return }
         context.coordinator.lastText = text
-        wv.loadHTMLString(html(text), baseURL: nil)
+        wv.loadHTMLString(html(text), baseURL: Self.katexBase)
     }
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
@@ -66,9 +72,9 @@ private struct _MathWebView: UIViewRepresentable {
         return """
         <!DOCTYPE html><html><head>
         <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        <link rel="stylesheet" href="katex.min.css">
+        <script defer src="katex.min.js"></script>
+        <script defer src="auto-render.min.js"
             onload="renderMathInElement(document.body,{delimiters:[{left:'\\\\(',right:'\\\\)',display:false},{left:'\\\\[',right:'\\\\]',display:true}],throwOnError:false})"></script>
         <style>
         *{box-sizing:border-box}
@@ -88,9 +94,9 @@ private struct _MathWebView: UIViewRepresentable {
         init(height: Binding<CGFloat>) { _height = height }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            // Measure twice: once immediately (initial layout), once after KaTeX CDN scripts run
+            // Measure twice: initial layout + after KaTeX scripts finish rendering
             measure(webView, after: 0.1)
-            measure(webView, after: 1.8)
+            measure(webView, after: 0.8)
         }
 
         private func measure(_ wv: WKWebView, after delay: TimeInterval) {

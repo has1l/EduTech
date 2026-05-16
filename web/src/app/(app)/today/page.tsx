@@ -17,21 +17,6 @@ const SUBJECT_TABS: { id: SubjectTab; label: string }[] = [
   { id: "chemistry", label: "Химия" },
 ];
 
-const COMING_SOON_COURSES = [
-  {
-    subject: "physics" as SubjectTab,
-    tag: "ЕГЭ · Физика",
-    title: "№1–20 ЕГЭ по физике",
-    description:
-      "Механика, термодинамика, электродинамика и квантовая физика",
-  },
-  {
-    subject: "chemistry" as SubjectTab,
-    tag: "ЕГЭ · Химия",
-    title: "№1–20 ЕГЭ по химии",
-    description: "Вещества, реакции, органика и расчётные задачи",
-  },
-];
 
 export default function TodayPage() {
   const [tab, setTab] = useState<SubjectTab>("all");
@@ -43,13 +28,29 @@ export default function TodayPage() {
   const examTag = isOge ? "ОГЭ · Математика" : "ЕГЭ · Профильная математика";
   const examTitle = isOge ? "Часть 1 — Алгебра и геометрия" : "Задания №1–12 (Часть 1)";
 
+  const prefix = isOge ? "ОГЭ" : "ЕГЭ";
+  const comingSoonCourses = [
+    {
+      subject: "physics" as SubjectTab,
+      tag: `${prefix} · Физика`,
+      title: `№1–20 ${prefix} по физике`,
+      description: "Механика, термодинамика, электродинамика и квантовая физика",
+    },
+    {
+      subject: "chemistry" as SubjectTab,
+      tag: `${prefix} · Химия`,
+      title: `№1–20 ${prefix} по химии`,
+      description: "Вещества, реакции, органика и расчётные задачи",
+    },
+  ];
+
   const tasks = session?.tasks ?? [];
   const totalMin = tasks.reduce((s, t) => s + t.difficulty * 2, 0);
 
   const showMath = tab === "all" || tab === "math";
   const showOther = tab === "all" || tab === "physics" || tab === "chemistry";
 
-  const visibleOther = COMING_SOON_COURSES.filter(
+  const visibleOther = comingSoonCourses.filter(
     (c) => tab === "all" || c.subject === tab,
   );
 
@@ -134,7 +135,7 @@ export default function TodayPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold">Диагностика знаний</p>
-                <p className="text-xs text-muted mt-0.5">12 заданий из варианта — узнай свои слабые места</p>
+                <p className="text-xs text-muted mt-0.5">{isOge ? "14" : "12"} заданий из варианта — узнай свои слабые места</p>
               </div>
               <Lock className="h-4 w-4 text-muted shrink-0 hidden" />
             </div>

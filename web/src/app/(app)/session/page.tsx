@@ -354,16 +354,6 @@ export default function SessionPage() {
     }
   }
 
-  async function handleStartTask(taskNumber: number) {
-    if (!tokens) return;
-    // Find the first non-completed (or first) node for this task number
-    const section = sections.find((s) => s.task_number === taskNumber);
-    const node = section?.nodes.find((n) => n.state !== "completed") ?? section?.nodes[0];
-    if (node) {
-      handleNodeTap(node);
-    }
-  }
-
   return (
     <>
       <AppNav />

@@ -384,16 +384,13 @@ export default function BoosterPage() {
       <AppNav />
       <div className="flex flex-col h-[calc(100vh-3.5rem)]">
 
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
-          <Zap className="h-5 w-5 text-accent" />
-          <div className="flex-1">
-            <h1 className="text-lg font-bold leading-tight">Бустер</h1>
-            {!isLoading && (
-              <p className="text-xs text-muted">
-                {items.length > 0 ? `${items.length} заданий для отработки` : "Все задания отработаны"}
-              </p>
-            )}
-          </div>
+        <div className="px-6 pt-8 pb-4 shrink-0">
+          <h1 className="text-xl font-bold">Бустер</h1>
+          {!isLoading && (
+            <p className="text-xs text-muted mt-0.5">
+              {items.length > 0 ? `${items.length} заданий для отработки` : "Все задания отработаны"}
+            </p>
+          )}
         </div>
 
         {isLoading && (

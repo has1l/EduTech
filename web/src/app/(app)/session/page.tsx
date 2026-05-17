@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Brain, ChevronLeft, ChevronRight, ClipboardList, Loader2, RefreshCw, Star, Zap, Lock, CheckCircle2 } from "lucide-react";
+import { Brain, ChevronLeft, ClipboardList, Loader2, RefreshCw, Star, Zap, Lock, CheckCircle2 } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { useMe, useSessionPath, useStudyPlan, useGeneratePlan } from "@/lib/queries";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import type { PathNode, PlanGroup, SubtopicSession, TaskSection } from "@/lib/types";
+import type { PathNode, SubtopicSession, TaskSection } from "@/lib/types";
 
 const ZIGZAG_OFFSETS = [56, 16, -56, -16, 56, 16, -56, -16];
 
@@ -34,11 +34,6 @@ const SECTION_STYLES: Record<number, { header: string; badge: string; label: str
   },
 };
 
-const STATUS_STYLES: Record<string, { ring: string; bg: string; badge: string; text: string; label: string }> = {
-  weak:   { ring: "border-danger",  bg: "bg-danger/5",   badge: "bg-danger/15 text-danger",   text: "text-danger",  label: "Слабое место" },
-  medium: { ring: "border-accent",  bg: "bg-accent/5",   badge: "bg-accent/15 text-accent",   text: "text-accent",  label: "В процессе" },
-  strong: { ring: "border-success", bg: "bg-success/5",  badge: "bg-success/15 text-success", text: "text-success", label: "Хорошо" },
-};
 
 function SectionHeader({ section }: { section: TaskSection }) {
   const style = SECTION_STYLES[section.difficulty] ?? SECTION_STYLES[2];
@@ -170,65 +165,40 @@ function Connector({ fromOffset, toOffset }: { fromOffset: number; toOffset: num
   );
 }
 
-function PlanGroupCard({ group, priority, onStart }: { group: PlanGroup; priority: number; onStart: () => void }) {
-  const st = STATUS_STYLES[group.status] ?? STATUS_STYLES.medium;
-
-  return (
-    <div className={cn("rounded-2xl border-2 p-4 space-y-3", st.ring, st.bg)}>
-      <div className="flex items-start gap-3">
-        {/* Priority number */}
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fg text-bg text-sm font-black">
-          {priority}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold leading-tight">Задание {group.task_number}</span>
-            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", st.badge)}>
-              {st.label}
-            </span>
-          </div>
-          <p className="text-xs text-muted mt-0.5 leading-tight">{group.title}</p>
-        </div>
-      </div>
-
-      {/* AI reasoning */}
-      <p className="text-sm text-fg/80 leading-relaxed">{group.why}</p>
-
-      {/* Mastery bar */}
-      <div className="space-y-1">
-        <div className="flex justify-between text-[10px] text-muted">
-          <span>Освоение</span>
-          <span>{group.mastery_pct}%</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-border overflow-hidden">
-          <div
-            className={cn("h-full rounded-full transition-all duration-700",
-              group.status === "strong" ? "bg-success" : group.status === "weak" ? "bg-danger" : "bg-accent"
-            )}
-            style={{ width: `${group.mastery_pct}%` }}
-          />
-        </div>
-      </div>
-
-      <button
-        onClick={onStart}
-        className="w-full flex items-center justify-center gap-2 rounded-xl bg-fg text-bg py-2.5 text-sm font-semibold hover:opacity-90 transition"
-      >
-        Начать
-        <ChevronRight className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
-function StudyPlanTab({ onStartTask }: { onStartTask: (taskNumber: number) => void }) {
+function StudyPlanTab({
+  sections,
+  isPathLoading,
+  onTap,
+  loadingNode,
+  isUnlocked,
+}: {
+  sections: TaskSection[];
+  isPathLoading: boolean;
+  onTap: (node: PathNode) => void;
+  loadingNode: string | null;
+  isUnlocked: boolean;
+}) {
   const { data: me } = useMe();
-  const { data: planData, isLoading } = useStudyPlan();
+  const { data: planData, isLoading: planLoading } = useStudyPlan();
   const generate = useGeneratePlan();
 
   const hasDiagnostic = !!me?.diagnostic_completed_at;
 
-  if (isLoading) {
+  // Reorder sections by AI plan priority
+  const orderedSections = useMemo(() => {
+    const groups = planData?.plan?.groups;
+    if (!groups) return sections;
+    const sectionMap = new Map(sections.map((s) => [s.task_number, s]));
+    const ordered = groups.flatMap((g) => {
+      const s = sectionMap.get(g.task_number);
+      return s ? [s] : [];
+    });
+    const covered = new Set(groups.map((g) => g.task_number));
+    const rest = sections.filter((s) => !covered.has(s.task_number));
+    return [...ordered, ...rest];
+  }, [sections, planData]);
+
+  if (isPathLoading || planLoading) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-muted">
         <Loader2 className="h-6 w-6 animate-spin" />
@@ -291,44 +261,57 @@ function StudyPlanTab({ onStartTask }: { onStartTask: (taskNumber: number) => vo
   }
 
   const plan = planData.plan;
-  const generatedDate = new Date(plan.generated_at).toLocaleDateString("ru-RU", {
-    day: "numeric", month: "long",
-  });
 
   return (
-    <div className="space-y-5">
-      {/* Summary card */}
-      <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4 space-y-2">
+    <div className="flex flex-col gap-10">
+      {/* AI summary */}
+      <div className="rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 space-y-1.5">
         <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-accent shrink-0" />
-          <span className="text-xs font-semibold text-accent uppercase tracking-wide">Вывод AI-репетитора</span>
+          <Brain className="h-3.5 w-3.5 text-accent shrink-0" />
+          <span className="text-[10px] font-bold text-accent uppercase tracking-wide">AI-репетитор</span>
+          <button
+            onClick={() => generate.mutate()}
+            disabled={generate.isPending}
+            className="ml-auto text-muted hover:text-fg transition disabled:opacity-40"
+          >
+            <RefreshCw className={cn("h-3 w-3", generate.isPending && "animate-spin")} />
+          </button>
         </div>
-        <p className="text-sm text-fg/90 leading-relaxed">{plan.summary}</p>
+        <p className="text-xs text-fg/80 leading-relaxed">{plan.summary}</p>
       </div>
 
-      {/* Plan groups */}
-      <div className="space-y-3">
-        {plan.groups.map((group, i) => (
-          <PlanGroupCard
-            key={group.task_number}
-            group={group}
-            priority={i + 1}
-            onStart={() => onStartTask(group.task_number)}
-          />
-        ))}
-      </div>
+      {/* Same zigzag path, but sections reordered by AI priority */}
+      {orderedSections.map((section) => (
+        <div key={section.task_number} className="flex flex-col items-center gap-0">
+          <SectionHeader section={section} />
+          <div className="mt-6 flex flex-col items-center w-full">
+            {section.nodes.map((node, i) => {
+              const offset = ZIGZAG_OFFSETS[i % ZIGZAG_OFFSETS.length];
+              const nextOffset = ZIGZAG_OFFSETS[(i + 1) % ZIGZAG_OFFSETS.length];
+              const isLast = i === section.nodes.length - 1;
+              return (
+                <div key={node.topic_id} className="flex flex-col items-center w-full">
+                  <PathNodeItem
+                    node={isUnlocked ? { ...node, state: node.state === "locked" ? "current" : node.state } : node}
+                    offset={offset}
+                    onTap={onTap}
+                    loading={loadingNode === node.topic_id}
+                  />
+                  {!isLast && <Connector fromOffset={offset} toOffset={nextOffset} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
 
-      {/* Refresh */}
-      <div className="flex items-center justify-between pt-2">
-        <p className="text-[11px] text-muted">Составлен {generatedDate}</p>
-        <button
-          onClick={() => generate.mutate()}
-          disabled={generate.isPending}
-          className="flex items-center gap-1.5 text-xs text-muted hover:text-fg transition disabled:opacity-50"
-        >
-          <RefreshCw className={cn("h-3 w-3", generate.isPending && "animate-spin")} />
-          Обновить
-        </button>
+      <div className="flex flex-col items-center gap-2 opacity-40">
+        <div className="flex gap-1">
+          {[0, 1, 2].map((i) => (
+            <Star key={i} className="h-5 w-5 text-accent" />
+          ))}
+        </div>
+        <p className="text-xs text-muted">Финиш</p>
       </div>
     </div>
   );
@@ -492,7 +475,13 @@ export default function SessionPage() {
             )}
           </div>
         ) : (
-          <StudyPlanTab onStartTask={handleStartTask} />
+          <StudyPlanTab
+            sections={sections}
+            isPathLoading={isLoading}
+            onTap={handleNodeTap}
+            loadingNode={loadingNode}
+            isUnlocked={isUnlocked}
+          />
         )}
       </main>
     </>

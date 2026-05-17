@@ -335,6 +335,12 @@ async def complete_session(session_id: str, user, db: AsyncSession) -> None:
     if streak.last_session_date == today:
         return
 
+    # Burn expired streak before applying today's activity
+    if streak.last_session_date and streak.current_streak > 0:
+        days_since = (today - streak.last_session_date).days
+        if days_since > 1 and not (days_since == 2 and streak.freezes_available > 0):
+            streak.current_streak = 0
+
     yesterday = date.fromordinal(today.toordinal() - 1)
     day_before = date.fromordinal(today.toordinal() - 2)
 

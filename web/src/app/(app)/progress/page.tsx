@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { BookOpen, Brain, Flame, RotateCcw, TrendingUp, Zap } from "lucide-react";
+import { BookOpen, Brain, ChevronDown, Flame, RotateCcw, TrendingUp, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { useMe, useScorePrediction, useSessionPath, useStreak, useKBStats, useClearKB } from "@/lib/queries";
 import { api } from "@/lib/api";
@@ -27,6 +27,8 @@ const DAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
 function StreakCard() {
   const { data: streak } = useStreak();
+  const [expanded, setExpanded] = useState(true);
+
   const current = streak?.current_streak ?? 0;
   const longest = streak?.longest_streak ?? 0;
   const freezes = streak?.freezes_available ?? 0;
@@ -51,7 +53,7 @@ function StreakCard() {
     return set;
   }, [streak?.last_session_date, current]);
 
-  // 5-week grid (35 cells) starting from Monday 4 weeks before this week's Monday
+  // 5-week grid (35 cells) — Mon of 4 weeks ago → today
   const cells = useMemo(() => {
     const dow = today.getDay();
     const mondayOffset = dow === 0 ? 6 : dow - 1;
@@ -75,30 +77,46 @@ function StreakCard() {
   return (
     <section className="rounded-3xl border border-border p-5">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-accent-fg flex-shrink-0">
           <Flame className="h-6 w-6" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="text-2xl font-bold leading-tight">
             {current}
             <span className="text-base font-normal text-muted ml-2">дн. подряд</span>
           </p>
           <p className="text-xs text-muted">Рекорд: {longest} дн. · Заморозок: {freezes}</p>
         </div>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="p-1.5 rounded-xl hover:bg-border/60 text-muted transition-colors"
+        >
+          <ChevronDown
+            className={cn("h-4 w-4 transition-transform duration-300", expanded && "rotate-180")}
+          />
+        </button>
       </div>
 
-      {/* Calendar */}
-      <div>
-        <p className="text-xs text-muted font-medium mb-2">{monthLabel}</p>
-        <div className="grid grid-cols-7 mb-1">
+      {/* Calendar — collapsible */}
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-300 ease-in-out",
+          expanded ? "max-h-80 opacity-100 mt-5" : "max-h-0 opacity-0 mt-0",
+        )}
+      >
+        {/* Month label + day headers */}
+        <p className="text-xs text-muted/70 font-medium mb-2">{monthLabel}</p>
+        <div className="grid grid-cols-7 mb-1.5">
           {DAY_LABELS.map((l) => (
-            <div key={l} className="text-center text-[10px] text-muted/60 font-medium py-0.5">
+            <div key={l} className="text-center text-[10px] text-muted/50 font-semibold py-0.5 uppercase tracking-wide">
               {l}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1">
+
+        {/* Cells */}
+        <div className="grid grid-cols-7 gap-1.5">
           {cells.map((day, i) => {
             const key = day.toISOString().slice(0, 10);
             const isActive = activeDates.has(key);
@@ -108,15 +126,26 @@ function StreakCard() {
               <div
                 key={i}
                 className={cn(
-                  "aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all duration-300",
-                  isActive && "bg-accent text-accent-fg font-bold shadow-sm",
-                  !isActive && !isFuture && "bg-border/50 text-muted/50",
+                  "aspect-square rounded-xl flex items-center justify-center text-xs font-medium select-none",
+                  "transition-all duration-200",
+                  isActive && [
+                    "bg-accent text-accent-fg font-bold",
+                    "shadow-[0_2px_8px_0] shadow-accent/40",
+                    "scale-[1.05]",
+                  ],
+                  !isActive && !isFuture && "bg-border/50 text-muted/60 hover:bg-border/80",
                   isFuture && "bg-border/20 text-muted/20",
-                  isToday && !isActive && "ring-2 ring-accent bg-accent/10 text-fg font-semibold ring-offset-1",
-                  isToday && isActive && "ring-2 ring-fg/20 ring-offset-1",
+                  isToday && !isActive && [
+                    "ring-2 ring-accent ring-offset-2",
+                    "bg-accent/10 text-fg font-semibold",
+                  ],
+                  isToday && isActive && "ring-2 ring-white/30 ring-offset-1",
                 )}
               >
-                {isActive ? <Flame className="h-3 w-3" /> : <span>{day.getDate()}</span>}
+                {isActive
+                  ? <Flame className="h-3.5 w-3.5 drop-shadow-sm" />
+                  : <span>{day.getDate()}</span>
+                }
               </div>
             );
           })}

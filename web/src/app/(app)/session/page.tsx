@@ -18,121 +18,69 @@ type Tab = "path" | "plan";
 
 // ─── Knowledge Map (Plan tab) ────────────────────────────────────────────────
 
-const G_CARD_W = 148;
-const G_CARD_H = 92;
-const G_COL_GAP = 16;
-const G_ROW_GAP = 40;
-const G_ROW_H = G_CARD_H + G_ROW_GAP;
-const G_TOTAL_W = G_CARD_W * 2 + G_COL_GAP;
-const G_LEFT_CX = G_CARD_W / 2;
-const G_RIGHT_CX = G_CARD_W + G_COL_GAP + G_CARD_W / 2;
+// Graph geometry
+const MAP_W   = 312;   // total SVG width
+const CX_L    = 62;    // left column node center x
+const CX_R    = 250;   // right column node center x
+const NODE_R  = 22;    // node radius
+const ROW_H   = 106;   // vertical distance between node centers
+const LBL_W   = 88;    // label text width
 
-interface GNode { task_number: number; title: string; hours: string }
+interface GNode { task_number: number; title: string }
 
 const EGE_LEFT: GNode[] = [
-  { task_number: 4,  title: "Вероятность",             hours: "~2 ч" },
-  { task_number: 5,  title: "Сложная вероятность",     hours: "~3 ч" },
-  { task_number: 7,  title: "Степени и логарифмы",     hours: "~4 ч" },
-  { task_number: 6,  title: "Уравнения",               hours: "~3 ч" },
-  { task_number: 8,  title: "Производные",             hours: "~4 ч" },
-  { task_number: 9,  title: "Задачи на формулы",       hours: "~2 ч" },
-  { task_number: 10, title: "Текстовые задачи",        hours: "~4 ч" },
+  { task_number: 4,  title: "Вероятность"         },
+  { task_number: 5,  title: "Слож. вероятность"   },
+  { task_number: 7,  title: "Степени и логарифмы" },
+  { task_number: 6,  title: "Уравнения"           },
+  { task_number: 8,  title: "Производные"         },
+  { task_number: 9,  title: "Задачи на формулы"   },
+  { task_number: 10, title: "Текстовые задачи"    },
 ];
 const EGE_RIGHT: GNode[] = [
-  { task_number: 1,  title: "Планиметрия",             hours: "~3 ч" },
-  { task_number: 2,  title: "Векторы",                 hours: "~4 ч" },
-  { task_number: 3,  title: "Стереометрия",            hours: "~5 ч" },
-  { task_number: 11, title: "Графики функций",         hours: "~3 ч" },
-  { task_number: 12, title: "Исследование функции",    hours: "~3 ч" },
+  { task_number: 1,  title: "Планиметрия"         },
+  { task_number: 2,  title: "Векторы"             },
+  { task_number: 3,  title: "Стереометрия"        },
+  { task_number: 11, title: "Графики функций"     },
+  { task_number: 12, title: "Исследование ф-ции"  },
 ];
-// cross-track: [leftRow, rightRow] — Производные (left row 4) → Графики (right row 3)
+// [leftRow, rightRow]: Производные (row 4) → Графики (row 3)
 const EGE_CROSS: [number, number][] = [[4, 3]];
 
 const OGE_LEFT: GNode[] = [
-  { task_number: 6,  title: "Выражения",               hours: "~2 ч" },
-  { task_number: 7,  title: "Степени и корни",         hours: "~2 ч" },
-  { task_number: 8,  title: "Уравнения",               hours: "~3 ч" },
-  { task_number: 9,  title: "Неравенства",             hours: "~2 ч" },
-  { task_number: 10, title: "Функции",                 hours: "~3 ч" },
-  { task_number: 13, title: "Прогрессии",              hours: "~2 ч" },
-  { task_number: 14, title: "Вероятность",             hours: "~2 ч" },
+  { task_number: 6,  title: "Выражения"           },
+  { task_number: 7,  title: "Степени и корни"     },
+  { task_number: 8,  title: "Уравнения"           },
+  { task_number: 9,  title: "Неравенства"         },
+  { task_number: 10, title: "Функции"             },
+  { task_number: 13, title: "Прогрессии"          },
+  { task_number: 14, title: "Вероятность"         },
 ];
 const OGE_RIGHT: GNode[] = [
-  { task_number: 11, title: "Планиметрия",             hours: "~4 ч" },
-  { task_number: 12, title: "Прикладные задачи",       hours: "~3 ч" },
-  { task_number: 15, title: "Задачи ОГЭ",             hours: "~3 ч" },
-  { task_number: 16, title: "Геометрия",               hours: "~4 ч" },
-  { task_number: 17, title: "Алгебраические задачи",  hours: "~3 ч" },
-  { task_number: 18, title: "Геометрические задачи",  hours: "~4 ч" },
-  { task_number: 19, title: "Реальный контекст",       hours: "~2 ч" },
+  { task_number: 11, title: "Планиметрия"         },
+  { task_number: 12, title: "Прикладные задачи"   },
+  { task_number: 15, title: "Задачи ОГЭ"         },
+  { task_number: 16, title: "Геометрия"           },
+  { task_number: 17, title: "Алгебр. задачи"      },
+  { task_number: 18, title: "Геом. задачи"        },
+  { task_number: 19, title: "Реальный контекст"   },
 ];
 const OGE_CROSS: [number, number][] = [];
 
 interface GMastery { total: number; completed: number; isCurrent: boolean }
 
-function GraphNodeCard({
-  node,
-  mastery,
-  isCurrent,
-  onStart,
-}: {
-  node: GNode;
-  mastery: GMastery | undefined;
-  isCurrent: boolean;
-  onStart: () => void;
-}) {
-  const isCompleted = mastery ? mastery.completed >= mastery.total && mastery.total > 0 : false;
-  const isStarted   = mastery ? mastery.completed > 0 || mastery.isCurrent : false;
-  const isLocked    = !mastery;
+type NS = "done" | "now" | "todo" | "locked";
 
-  const borderCls = isCompleted ? "border-success"
-    : isCurrent    ? "border-accent"
-    : isStarted    ? "border-accent/40"
-    : "border-border";
-
-  const dotCls = isCompleted ? "bg-success"
-    : isCurrent    ? "bg-accent"
-    : isStarted    ? "bg-accent/50"
-    : "bg-fg/15";
-
-  return (
-    <button
-      onClick={() => !isLocked && onStart()}
-      disabled={isLocked}
-      style={{ width: G_CARD_W, height: G_CARD_H }}
-      className={cn(
-        "relative rounded-2xl border-2 bg-bg p-3 text-left transition-shadow",
-        borderCls,
-        isLocked ? "opacity-40 cursor-not-allowed" : "hover:shadow-md cursor-pointer",
-      )}
-    >
-      {isCurrent && (
-        <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-accent text-accent-fg text-[9px] font-black tracking-wider uppercase px-2 py-0.5 whitespace-nowrap">
-          Сейчас
-        </span>
-      )}
-
-      <div className="flex items-center justify-between mb-2">
-        <span className="rounded-lg bg-fg/8 text-fg text-[10px] font-bold px-1.5 py-0.5 leading-none">
-          №{node.task_number}
-        </span>
-        <span className={cn("h-2 w-2 rounded-full shrink-0", dotCls)} />
-      </div>
-
-      <p className="text-[11px] font-bold leading-tight line-clamp-2 mb-1.5">
-        {node.title}
-      </p>
-
-      {mastery ? (
-        <p className="text-[10px] text-muted tabular-nums">
-          {mastery.completed}/{mastery.total} тем
-        </p>
-      ) : (
-        <p className="text-[10px] text-muted">{node.hours}</p>
-      )}
-    </button>
-  );
+function nodeState(m: GMastery | undefined, isCur: boolean): NS {
+  if (!m) return "locked";
+  if (m.completed >= m.total && m.total > 0) return "done";
+  if (isCur || m.isCurrent) return "now";
+  return "todo";
 }
+
+const N_FILL:   Record<NS, string> = { done: "#22c55e", now: "#FFD000", todo: "#ffffff", locked: "#f3f4f6" };
+const N_STROKE: Record<NS, string> = { done: "#16a34a", now: "#a68a00", todo: "#d1d5db", locked: "#e5e7eb" };
+const N_TEXT:   Record<NS, string> = { done: "#ffffff", now: "#000000", todo: "#9ca3af", locked: "#c4c7ce" };
 
 function KnowledgeGraph({
   leftTrack,
@@ -150,80 +98,117 @@ function KnowledgeGraph({
   onStartTask: (n: number) => void;
 }) {
   const maxRows = Math.max(leftTrack.length, rightTrack.length);
-  const svgH = maxRows * G_ROW_H - G_ROW_GAP + 8;
+  // total container height: last node bottom + label area + bottom padding
+  const totalH = (maxRows - 1) * ROW_H + NODE_R * 2 + 40 + 16;
 
-  const cy = (row: number) => row * G_ROW_H + G_CARD_H / 2;
+  const cy = (row: number) => row * ROW_H + NODE_R;
+
+  function renderTrack(track: GNode[], cx: number) {
+    return track.map((node, i) => {
+      const m   = taskMastery[node.task_number];
+      const ns  = nodeState(m, currentTaskNumber === node.task_number);
+      const top = cy(i) - NODE_R;
+
+      return (
+        <div key={node.task_number}>
+          {ns === "now" && (
+            <span
+              className="absolute rounded-full animate-ping"
+              style={{
+                width: NODE_R * 2 + 8, height: NODE_R * 2 + 8,
+                left: cx - NODE_R - 4, top: top - 4,
+                background: "#FFD000", opacity: 0.25,
+              }}
+            />
+          )}
+          <button
+            onClick={() => ns !== "locked" && onStartTask(node.task_number)}
+            disabled={ns === "locked"}
+            className="absolute flex items-center justify-center text-sm font-black transition-transform hover:scale-110 active:scale-95"
+            style={{
+              width: NODE_R * 2, height: NODE_R * 2, borderRadius: "50%",
+              left: cx - NODE_R, top,
+              background: N_FILL[ns],
+              border: `2.5px solid ${N_STROKE[ns]}`,
+              color: N_TEXT[ns],
+              cursor: ns === "locked" ? "default" : "pointer",
+              zIndex: 2,
+            }}
+          >
+            {node.task_number}
+          </button>
+          {/* Label below node */}
+          <div
+            className="absolute pointer-events-none text-center"
+            style={{ width: LBL_W, left: cx - LBL_W / 2, top: cy(i) + NODE_R + 5, zIndex: 1 }}
+          >
+            <p className="text-[10px] font-semibold leading-tight" style={{ color: ns === "locked" ? "#c4c7ce" : "#374151" }}>
+              {node.title}
+            </p>
+            {m && (
+              <p className="text-[9px] tabular-nums" style={{ color: "#9ca3af", marginTop: 2 }}>
+                {m.completed}/{m.total}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    });
+  }
 
   return (
-    <div className="relative mx-auto" style={{ width: G_TOTAL_W }}>
+    <div className="relative mx-auto" style={{ width: MAP_W, height: totalH }}>
+      {/* SVG: lines and arrowheads only */}
       <svg
-        className="absolute top-0 left-0 pointer-events-none z-10"
-        width={G_TOTAL_W}
-        height={svgH}
-        overflow="visible"
+        className="absolute inset-0 pointer-events-none"
+        width={MAP_W}
+        height={totalH}
+        style={{ zIndex: 0 }}
       >
-        {/* In-track left lines */}
+        <defs>
+          <marker
+            id="ah" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto"
+          >
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#FFD000" />
+          </marker>
+        </defs>
+
+        {/* Left track sequential lines */}
         {leftTrack.slice(0, -1).map((_, i) => (
           <line
             key={`ll${i}`}
-            x1={G_LEFT_CX} y1={i * G_ROW_H + G_CARD_H}
-            x2={G_LEFT_CX} y2={(i + 1) * G_ROW_H}
-            stroke="hsl(var(--border))"
-            strokeWidth="1.5"
-            strokeDasharray="4 5"
+            x1={CX_L} y1={cy(i) + NODE_R + 2}
+            x2={CX_L} y2={cy(i + 1) - NODE_R - 2}
+            stroke="#e5e7eb" strokeWidth="1.5" strokeDasharray="3 5"
           />
         ))}
 
-        {/* In-track right lines */}
+        {/* Right track sequential lines */}
         {rightTrack.slice(0, -1).map((_, i) => (
           <line
             key={`rl${i}`}
-            x1={G_RIGHT_CX} y1={i * G_ROW_H + G_CARD_H}
-            x2={G_RIGHT_CX} y2={(i + 1) * G_ROW_H}
-            stroke="hsl(var(--border))"
-            strokeWidth="1.5"
-            strokeDasharray="4 5"
+            x1={CX_R} y1={cy(i) + NODE_R + 2}
+            x2={CX_R} y2={cy(i + 1) - NODE_R - 2}
+            stroke="#e5e7eb" strokeWidth="1.5" strokeDasharray="3 5"
           />
         ))}
 
-        {/* Cross-track "помогает" arrows */}
+        {/* Cross-track arrows */}
         {crossEdges.map(([lRow, rRow], i) => (
           <line
             key={`cr${i}`}
-            x1={G_CARD_W}      y1={cy(lRow)}
-            x2={G_CARD_W + G_COL_GAP} y2={cy(rRow)}
-            stroke="hsl(var(--accent))"
-            strokeWidth="1.5"
-            strokeDasharray="4 4"
-            opacity="0.7"
+            x1={CX_L + NODE_R + 2} y1={cy(lRow)}
+            x2={CX_R - NODE_R - 10} y2={cy(rRow)}
+            stroke="#FFD000" strokeWidth="1.5"
+            markerEnd="url(#ah)"
           />
         ))}
       </svg>
 
-      <div className="relative flex gap-[16px]">
-        <div className="flex flex-col gap-[40px]">
-          {leftTrack.map((node) => (
-            <GraphNodeCard
-              key={node.task_number}
-              node={node}
-              mastery={taskMastery[node.task_number]}
-              isCurrent={currentTaskNumber === node.task_number}
-              onStart={() => onStartTask(node.task_number)}
-            />
-          ))}
-        </div>
-        <div className="flex flex-col gap-[40px]">
-          {rightTrack.map((node) => (
-            <GraphNodeCard
-              key={node.task_number}
-              node={node}
-              mastery={taskMastery[node.task_number]}
-              isCurrent={currentTaskNumber === node.task_number}
-              onStart={() => onStartTask(node.task_number)}
-            />
-          ))}
-        </div>
-      </div>
+      {/* Nodes */}
+      {renderTrack(leftTrack, CX_L)}
+      {renderTrack(rightTrack, CX_R)}
     </div>
   );
 }
@@ -272,28 +257,28 @@ function KnowledgeMapTab({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Header */}
       <div>
-        <p className="text-[11px] font-bold tracking-widest uppercase text-muted mb-1">
+        <p className="text-[10px] font-black tracking-[0.2em] uppercase text-muted mb-1">
           Карта знаний
         </p>
-        <p className="text-sm text-fg/70 leading-relaxed">
-          Каждая следующая тема опирается на предыдущую.{" "}
-          <span className="text-accent font-medium">Жёлтая стрелка</span> — без этого не пойдёт дальше.
+        <p className="text-sm text-fg/60 leading-relaxed">
+          Темы связаны между собой — стрелка показывает, что нужно освоить сначала.
         </p>
       </div>
 
       {/* Track labels */}
-      <div className="mx-auto flex gap-[16px]" style={{ width: G_TOTAL_W }}>
-        <div className="flex items-center gap-1.5" style={{ width: G_CARD_W }}>
-          <span className="h-2 w-2 rounded-full bg-accent shrink-0" />
-          <span className="text-[10px] font-black tracking-wider uppercase text-accent">Алгебра</span>
+      <div className="relative mx-auto flex" style={{ width: MAP_W }}>
+        <div className="absolute flex items-center gap-1.5" style={{ left: CX_L - LBL_W / 2 }}>
+          <span className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" />
+          <span className="text-[9px] font-black tracking-[0.15em] uppercase text-accent">Алгебра</span>
         </div>
-        <div className="flex items-center gap-1.5" style={{ width: G_CARD_W }}>
-          <span className="h-2 w-2 rounded-full bg-fg shrink-0" />
-          <span className="text-[10px] font-black tracking-wider uppercase text-fg">Геометрия</span>
+        <div className="absolute flex items-center gap-1.5" style={{ left: CX_R - LBL_W / 2 }}>
+          <span className="h-1.5 w-1.5 rounded-full bg-fg shrink-0" />
+          <span className="text-[9px] font-black tracking-[0.15em] uppercase text-fg">Геометрия</span>
         </div>
+        <div style={{ height: 20 }} />
       </div>
 
       {/* Graph */}
@@ -307,18 +292,22 @@ function KnowledgeMapTab({
       />
 
       {/* Legend */}
-      <div className="mx-auto flex items-center gap-5 pt-2 pb-6" style={{ width: G_TOTAL_W }}>
-        <span className="flex items-center gap-1.5 text-[10px] text-muted">
-          <svg width="20" height="8">
-            <line x1="0" y1="4" x2="20" y2="4" stroke="hsl(var(--border))" strokeWidth="1.5" strokeDasharray="4 4" />
-          </svg>
+      <div className="flex items-center gap-6 pb-6 text-[10px] text-muted">
+        <span className="flex items-center gap-1.5">
+          <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#e5e7eb" strokeWidth="1.5" strokeDasharray="3 4"/></svg>
           в треке
         </span>
-        <span className="flex items-center gap-1.5 text-[10px] text-muted">
-          <svg width="20" height="8">
-            <line x1="0" y1="4" x2="20" y2="4" stroke="hsl(var(--accent))" strokeWidth="1.5" strokeDasharray="4 4" />
-          </svg>
+        <span className="flex items-center gap-1.5">
+          <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#FFD000" strokeWidth="1.5"/></svg>
           помогает
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full bg-accent inline-block" />
+          сейчас
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full bg-success inline-block" />
+          готово
         </span>
       </div>
     </div>

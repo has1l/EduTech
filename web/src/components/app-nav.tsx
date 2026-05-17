@@ -86,25 +86,31 @@ export function AppNav() {
             <Flame className="h-4 w-4 text-accent" />
             <span>{current}</span>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             {weekDays.map((day, i) => {
               const key = day.toISOString().slice(0, 10);
               const isActive = activeDates.has(key);
               const isToday = key === todayStr;
               const isFuture = day > today;
               return (
-                <div
-                  key={i}
-                  title={WEEK_LABELS[i]}
-                  className={cn(
-                    "h-3 w-3 rounded-full transition-all duration-300",
-                    isActive && "bg-accent shadow-sm shadow-accent/50",
-                    !isActive && !isFuture && "bg-border",
-                    isFuture && "bg-border/30",
-                    isToday && !isActive && "ring-2 ring-accent ring-offset-1",
-                    isToday && isActive && "ring-2 ring-fg/20 ring-offset-1",
-                  )}
-                />
+                <div key={i} className="flex flex-col items-center gap-0.5">
+                  <div
+                    className={cn(
+                      "h-3 w-3 rounded-full transition-all duration-300",
+                      isActive && "bg-accent shadow-sm shadow-accent/50",
+                      !isActive && !isFuture && "bg-border",
+                      isFuture && "bg-border/30",
+                      isToday && !isActive && "ring-2 ring-accent ring-offset-1",
+                      isToday && isActive && "ring-2 ring-fg/20 ring-offset-1",
+                    )}
+                  />
+                  <span className={cn(
+                    "text-[9px] font-medium leading-none",
+                    isToday ? "text-accent font-bold" : "text-muted/50",
+                  )}>
+                    {WEEK_LABELS[i]}
+                  </span>
+                </div>
               );
             })}
           </div>

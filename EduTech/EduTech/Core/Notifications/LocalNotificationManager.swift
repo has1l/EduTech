@@ -115,6 +115,5 @@ enum LocalNotificationManager {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: [dailyId])
         cancelRepeating()
-        AppDefaults.dailyReminderTime = nil
     }
 }

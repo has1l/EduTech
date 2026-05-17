@@ -11,6 +11,7 @@ enum AppDefaults {
         static let lastKnownStreak = "last_known_streak"
         static let didShowSwipeHint = "did_show_swipe_hint"
         static let didShowDiagnosticSwipeHint = "did_show_diagnostic_swipe_hint"
+        static let notificationsEnabled = "notifications_enabled"
     }
 
     static var didShowSwipeHint: Bool {
@@ -47,5 +48,10 @@ enum AppDefaults {
                 defaults.removeObject(forKey: Key.dailyReminderMinute)
             }
         }
+    }
+
+    static var notificationsEnabled: Bool {
+        get { defaults.bool(forKey: Key.notificationsEnabled) }
+        set { defaults.set(newValue, forKey: Key.notificationsEnabled) }
     }
 }

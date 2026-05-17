@@ -8,10 +8,6 @@ struct ProfileView: View {
     @State private var examYear: Int = Calendar.current.component(.year, from: Date())
     @State private var saved = false
     @State private var saving = false
-    @State private var notificationTime: Date = {
-        var dc = DateComponents(); dc.hour = 19; dc.minute = 0
-        return Calendar.current.date(from: dc) ?? Date()
-    }()
     @State private var notificationsOn: Bool = false
     @State private var streak: Streak?
 
@@ -162,7 +158,7 @@ struct ProfileView: View {
             Text("Напоминания").font(.headline)
             Toggle(isOn: $notificationsOn) {
                 VStack(alignment: .leading) {
-                    Text("Ежедневное напоминание").font(.subheadline)
+                    Text("Уведомления каждые 3 часа").font(.subheadline)
                     Text("Чтобы серия не сгорала").font(.caption).foregroundStyle(Color.appMuted)
                 }
             }
@@ -170,25 +166,12 @@ struct ProfileView: View {
             .onChange(of: notificationsOn) { _, on in
                 Task {
                     if on {
-                        let cal = Calendar.current
-                        let h = cal.component(.hour, from: notificationTime)
-                        let m = cal.component(.minute, from: notificationTime)
-                        await LocalNotificationManager.scheduleDaily(hour: h, minute: m)
                         await LocalNotificationManager.scheduleRepeating()
                     } else {
                         LocalNotificationManager.cancel()
                     }
+                    AppDefaults.notificationsEnabled = on
                 }
-            }
-            if notificationsOn {
-                DatePicker("Время", selection: $notificationTime, displayedComponents: .hourAndMinute)
-                    .datePickerStyle(.compact)
-                    .onChange(of: notificationTime) { _, t in
-                        Task {
-                            let cal = Calendar.current
-                            await LocalNotificationManager.scheduleDaily(hour: cal.component(.hour, from: t), minute: cal.component(.minute, from: t))
-                        }
-                    }
             }
         }
         .padding(16)
@@ -225,11 +208,7 @@ struct ProfileView: View {
     }
 
     private func loadNotificationSettings() {
-        if let t = AppDefaults.dailyReminderTime {
-            notificationsOn = true
-            var dc = DateComponents(); dc.hour = t.hour; dc.minute = t.minute
-            if let d = Calendar.current.date(from: dc) { notificationTime = d }
-        }
+        notificationsOn = AppDefaults.notificationsEnabled
     }
 
     private func save() async {

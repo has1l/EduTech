@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { BookOpen, Brain, Flame, RotateCcw, TrendingUp, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { useMe, useScorePrediction, useSessionPath, useStreak, useKBStats, useClearKB } from "@/lib/queries";
@@ -22,28 +22,104 @@ const DIFFICULTY_COLOR = { 1: "bg-success", 2: "bg-accent", 3: "bg-danger" } as 
 
 // ─── components ─────────────────────────────────────────────────────────────
 
+const MONTH_NAMES = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
+const DAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
 function StreakCard() {
   const { data: streak } = useStreak();
   const current = streak?.current_streak ?? 0;
   const longest = streak?.longest_streak ?? 0;
   const freezes = streak?.freezes_available ?? 0;
 
-  const days = Array.from({ length: 7 }, (_, i) => i < current % 7 || current >= 7);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const activeDates = useMemo(() => {
+    const set = new Set<string>();
+    if (!streak?.last_session_date || current <= 0) return set;
+    const last = new Date(streak.last_session_date);
+    last.setHours(0, 0, 0, 0);
+    for (let i = 0; i < current; i++) {
+      const d = new Date(last);
+      d.setDate(last.getDate() - i);
+      set.add(d.toISOString().slice(0, 10));
+    }
+    return set;
+  }, [streak?.last_session_date, current]);
+
+  // 5-week grid (35 cells) starting from Monday 4 weeks before this week's Monday
+  const cells = useMemo(() => {
+    const dow = today.getDay();
+    const mondayOffset = dow === 0 ? 6 : dow - 1;
+    const start = new Date(today);
+    start.setDate(today.getDate() - mondayOffset - 28);
+    return Array.from({ length: 35 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
+  }, [today]);
+
+  const monthLabel = useMemo(() => {
+    const first = cells[0];
+    const last = cells[cells.length - 1];
+    return first.getMonth() === last.getMonth()
+      ? `${MONTH_NAMES[first.getMonth()]} ${first.getFullYear()}`
+      : `${MONTH_NAMES[first.getMonth()]} — ${MONTH_NAMES[last.getMonth()]} ${last.getFullYear()}`;
+  }, [cells]);
 
   return (
     <section className="rounded-3xl border border-border p-5">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-accent-fg">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-accent-fg flex-shrink-0">
           <Flame className="h-6 w-6" />
         </div>
         <div>
-          <p className="text-2xl font-bold leading-tight">{current} <span className="text-base font-normal text-muted">дн. подряд</span></p>
+          <p className="text-2xl font-bold leading-tight">
+            {current}
+            <span className="text-base font-normal text-muted ml-2">дн. подряд</span>
+          </p>
           <p className="text-xs text-muted">Рекорд: {longest} дн. · Заморозок: {freezes}</p>
         </div>
-        <div className="ml-auto hidden sm:flex gap-1">
-          {days.map((active, i) => (
-            <div key={i} className={cn("h-7 w-7 rounded-lg transition", active ? "bg-accent" : "bg-border")} />
+      </div>
+
+      {/* Calendar */}
+      <div>
+        <p className="text-xs text-muted font-medium mb-2">{monthLabel}</p>
+        <div className="grid grid-cols-7 mb-1">
+          {DAY_LABELS.map((l) => (
+            <div key={l} className="text-center text-[10px] text-muted/60 font-medium py-0.5">
+              {l}
+            </div>
           ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((day, i) => {
+            const key = day.toISOString().slice(0, 10);
+            const isActive = activeDates.has(key);
+            const isToday = key === todayStr;
+            const isFuture = day > today;
+            return (
+              <div
+                key={i}
+                className={cn(
+                  "aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all duration-300",
+                  isActive && "bg-accent text-accent-fg font-bold shadow-sm",
+                  !isActive && !isFuture && "bg-border/50 text-muted/50",
+                  isFuture && "bg-border/20 text-muted/20",
+                  isToday && !isActive && "ring-2 ring-accent bg-accent/10 text-fg font-semibold ring-offset-1",
+                  isToday && isActive && "ring-2 ring-fg/20 ring-offset-1",
+                )}
+              >
+                {isActive ? <Flame className="h-3 w-3" /> : <span>{day.getDate()}</span>}
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

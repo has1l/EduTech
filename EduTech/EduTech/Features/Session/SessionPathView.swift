@@ -323,19 +323,37 @@ private struct _EmbeddedPlanContent: View {
     @Environment(Router.self) private var router
     @Environment(AppState.self) private var appState
     @State private var planOut: PlanOut?
+    @State private var sections: [TaskSection] = []
     @State private var loading = true
     @State private var generating = false
     @State private var error: String?
+    @State private var loadingNodeId: UUID?
+
+    // Sections reordered by AI plan priority
+    private var orderedSections: [TaskSection] {
+        guard let groups = planOut?.plan?.groups, !sections.isEmpty else { return sections }
+        var map: [Int: TaskSection] = [:]
+        for s in sections { map[s.taskNumber] = s }
+        var result: [TaskSection] = []
+        var seen = Set<Int>()
+        for g in groups {
+            if let s = map[g.taskNumber], seen.insert(s.taskNumber).inserted {
+                result.append(s)
+            }
+        }
+        for s in sections where !seen.contains(s.taskNumber) { result.append(s) }
+        return result
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 40) {
                 if loading {
                     ProgressView().frame(maxWidth: .infinity).padding(.top, 60)
                 } else if appState.currentUser?.diagnosticCompletedAt == nil {
                     diagnosticGate
                 } else if let plan = planOut?.plan {
-                    planContent(plan)
+                    planPath(plan)
                 } else {
                     needsGeneration
                 }
@@ -343,12 +361,14 @@ private struct _EmbeddedPlanContent: View {
                     Text(e).foregroundStyle(Color.appDanger).font(.caption)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 20)
             .padding(.bottom, 60)
         }
         .task { await load() }
     }
+
+    // MARK: - States
 
     private var diagnosticGate: some View {
         VStack(spacing: 20) {
@@ -374,84 +394,115 @@ private struct _EmbeddedPlanContent: View {
         .padding(.top, 50).padding(.horizontal, 8)
     }
 
+    // MARK: - Plan path (zigzag, AI-ordered)
+
     @ViewBuilder
-    private func planContent(_ plan: StudyPlan) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "brain.head.profile").font(.caption.bold()).foregroundStyle(Color.appAccent)
-                Text("Вывод AI-репетитора").font(.caption.bold()).foregroundStyle(Color.appAccent)
-            }
-            Text(plan.summary).font(.subheadline).foregroundStyle(Color.appFg)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appAccent.opacity(0.08))
-        .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(Color.appAccent.opacity(0.2), lineWidth: 1) }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-
-        ForEach(Array(plan.groups.enumerated()), id: \.offset) { i, group in
-            groupCard(group, priority: i + 1)
-        }
-
-        HStack {
-            Spacer()
+    private func planPath(_ plan: StudyPlan) -> some View {
+        // AI summary strip
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "brain.head.profile")
+                .font(.caption.bold()).foregroundStyle(Color.appAccent)
+            Text(plan.summary)
+                .font(.caption).foregroundStyle(Color.appFg.opacity(0.85))
+                .frame(maxWidth: .infinity, alignment: .leading)
             Button { Task { await generate() } } label: {
-                Label("Обновить", systemImage: "arrow.clockwise").font(.caption)
+                Image(systemName: "arrow.clockwise")
+                    .font(.caption).foregroundStyle(Color.appMuted)
             }
             .disabled(generating)
         }
+        .padding(12)
+        .background(Color.appAccent.opacity(0.07))
+        .overlay { RoundedRectangle(cornerRadius: 14).strokeBorder(Color.appAccent.opacity(0.18), lineWidth: 1) }
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+
+        // Zigzag sections in AI priority order
+        ForEach(orderedSections) { section in
+            planSectionBlock(section)
+        }
+
+        // Finish
+        if !orderedSections.isEmpty {
+            VStack(spacing: 6) {
+                HStack(spacing: 2) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        Image(systemName: "star.fill").foregroundStyle(Color.appAccent).font(.title3)
+                    }
+                }
+                Text("Финиш").font(.caption).foregroundStyle(Color.appMuted)
+            }
+            .opacity(0.45)
+            .frame(maxWidth: .infinity)
+        }
     }
 
-    private func groupCard(_ group: PlanGroup, priority: Int) -> some View {
-        let color: Color = group.status == .weak ? .appDanger : group.status == .medium ? .appAccent : .appSuccess
-        let statusLabel = group.status == .weak ? "Слабое место" : group.status == .medium ? "В процессе" : "Хорошо"
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
-                Text("\(priority)")
-                    .font(.caption.bold())
-                    .frame(width: 30, height: 30)
-                    .background(Color.appFg, in: Circle())
-                    .foregroundStyle(Color.appBg)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("Задание \(group.taskNumber)").font(.subheadline.bold())
-                        Text(statusLabel)
-                            .font(.system(size: 10, weight: .semibold))
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(color.opacity(0.15), in: Capsule())
-                            .foregroundStyle(color)
-                    }
-                    Text(group.title).font(.caption).foregroundStyle(Color.appMuted)
+    private func planSectionBlock(_ section: TaskSection) -> some View {
+        let color: Color = section.difficulty == 1 ? .appSuccess : section.difficulty == 3 ? .appDanger : .appAccent
+        let mastered = section.nodes.filter { $0.state == .completed }.count
+        return VStack(spacing: 0) {
+            // Section header (same style as path tab)
+            HStack(spacing: 10) {
+                Text("\(section.taskNumber)")
+                    .font(.subheadline.bold())
+                    .frame(width: 36, height: 36)
+                    .background(color.opacity(0.18), in: Circle())
+                    .foregroundStyle(color)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Задание \(section.taskNumber)").font(.caption.bold()).foregroundStyle(color)
+                    Text(section.title).font(.subheadline).foregroundStyle(Color.appFg).lineLimit(1)
                 }
                 Spacer()
+                Text("\(mastered)\u{2009}/\u{2009}\(section.nodes.count)")
+                    .font(.caption.monospacedDigit()).foregroundStyle(Color.appMuted)
             }
-            Text(group.why).font(.subheadline).foregroundStyle(Color.appFg.opacity(0.85))
-            VStack(spacing: 3) {
-                HStack {
-                    Text("Освоение").font(.caption).foregroundStyle(Color.appMuted)
-                    Spacer()
-                    Text("\(group.masteryPct)%").font(.caption.monospacedDigit().bold()).foregroundStyle(Color.appMuted)
+            .padding(12)
+            .background(color.opacity(0.06))
+            .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(color.opacity(0.25), lineWidth: 1) }
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+
+            // Zigzag nodes
+            VStack(spacing: 28) {
+                ForEach(Array(section.nodes.enumerated()), id: \.offset) { i, node in
+                    PathNodeView(
+                        node: node,
+                        xOffset: zigzagOffsets[i % zigzagOffsets.count],
+                        isLoadingTap: loadingNodeId == node.topicId,
+                        onTap: { Task { await startSubtopic(node) } }
+                    )
                 }
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3).fill(Color.appBorder.opacity(0.4))
-                        RoundedRectangle(cornerRadius: 3).fill(color)
-                            .frame(width: geo.size.width * CGFloat(group.masteryPct) / 100)
-                    }
-                }
-                .frame(height: 5)
             }
+            .padding(.top, 24)
         }
-        .padding(14)
-        .background(color.opacity(0.04))
-        .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(color.opacity(0.25), lineWidth: 1.5) }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Actions
+
+    private func startSubtopic(_ node: PathNode) async {
+        guard loadingNodeId == nil else { return }
+        loadingNodeId = node.topicId
+        defer { loadingNodeId = nil }
+        do {
+            let session: SubtopicSession = try await APIClient.shared.request(
+                .subtopicSession(topicId: node.topicId, count: 5)
+            )
+            guard !session.tasks.isEmpty else { return }
+            router.push(.taskSession(allIds: session.tasks.map(\.id), topicId: node.topicId, origin: .session, initialPage: 0))
+        } catch {
+            self.error = (error as? LocalizedError)?.errorDescription
+        }
     }
 
     private func load() async {
         loading = true
         defer { loading = false }
-        do { planOut = try await APIClient.shared.request(.plan) } catch {
+        do {
+            async let planTask: PlanOut = APIClient.shared.request(.plan)
+            async let pathTask: SessionPath = APIClient.shared.request(.sessionPath)
+            let (plan, path) = try await (planTask, pathTask)
+            planOut = plan
+            sections = path.sections
+            error = nil
+        } catch {
             self.error = (error as? LocalizedError)?.errorDescription
         }
     }

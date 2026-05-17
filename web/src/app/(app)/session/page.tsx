@@ -1,20 +1,331 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Brain, ChevronLeft, ChevronRight, ClipboardList, Loader2, RefreshCw, Star, Zap, Lock, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, Loader2, Star, Zap, Lock, CheckCircle2 } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
-import { useMe, useSessionPath, useStudyPlan, useGeneratePlan } from "@/lib/queries";
+import { useMe, useSessionPath } from "@/lib/queries";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import type { PathNode, PlanGroup, SubtopicSession, TaskSection } from "@/lib/types";
+import type { PathNode, SubtopicSession, TaskSection } from "@/lib/types";
 
 const ZIGZAG_OFFSETS = [56, 16, -56, -16, 56, 16, -56, -16];
 
 type NodeState = "completed" | "current" | "locked";
 type Tab = "path" | "plan";
+
+// ─── Knowledge Map (Plan tab) ────────────────────────────────────────────────
+
+const G_CARD_W = 148;
+const G_CARD_H = 92;
+const G_COL_GAP = 16;
+const G_ROW_GAP = 40;
+const G_ROW_H = G_CARD_H + G_ROW_GAP;
+const G_TOTAL_W = G_CARD_W * 2 + G_COL_GAP;
+const G_LEFT_CX = G_CARD_W / 2;
+const G_RIGHT_CX = G_CARD_W + G_COL_GAP + G_CARD_W / 2;
+
+interface GNode { task_number: number; title: string; hours: string }
+
+const EGE_LEFT: GNode[] = [
+  { task_number: 4,  title: "Вероятность",             hours: "~2 ч" },
+  { task_number: 5,  title: "Сложная вероятность",     hours: "~3 ч" },
+  { task_number: 7,  title: "Степени и логарифмы",     hours: "~4 ч" },
+  { task_number: 6,  title: "Уравнения",               hours: "~3 ч" },
+  { task_number: 8,  title: "Производные",             hours: "~4 ч" },
+  { task_number: 9,  title: "Задачи на формулы",       hours: "~2 ч" },
+  { task_number: 10, title: "Текстовые задачи",        hours: "~4 ч" },
+];
+const EGE_RIGHT: GNode[] = [
+  { task_number: 1,  title: "Планиметрия",             hours: "~3 ч" },
+  { task_number: 2,  title: "Векторы",                 hours: "~4 ч" },
+  { task_number: 3,  title: "Стереометрия",            hours: "~5 ч" },
+  { task_number: 11, title: "Графики функций",         hours: "~3 ч" },
+  { task_number: 12, title: "Исследование функции",    hours: "~3 ч" },
+];
+// cross-track: [leftRow, rightRow] — Производные (left row 4) → Графики (right row 3)
+const EGE_CROSS: [number, number][] = [[4, 3]];
+
+const OGE_LEFT: GNode[] = [
+  { task_number: 6,  title: "Выражения",               hours: "~2 ч" },
+  { task_number: 7,  title: "Степени и корни",         hours: "~2 ч" },
+  { task_number: 8,  title: "Уравнения",               hours: "~3 ч" },
+  { task_number: 9,  title: "Неравенства",             hours: "~2 ч" },
+  { task_number: 10, title: "Функции",                 hours: "~3 ч" },
+  { task_number: 13, title: "Прогрессии",              hours: "~2 ч" },
+  { task_number: 14, title: "Вероятность",             hours: "~2 ч" },
+];
+const OGE_RIGHT: GNode[] = [
+  { task_number: 11, title: "Планиметрия",             hours: "~4 ч" },
+  { task_number: 12, title: "Прикладные задачи",       hours: "~3 ч" },
+  { task_number: 15, title: "Задачи ОГЭ",             hours: "~3 ч" },
+  { task_number: 16, title: "Геометрия",               hours: "~4 ч" },
+  { task_number: 17, title: "Алгебраические задачи",  hours: "~3 ч" },
+  { task_number: 18, title: "Геометрические задачи",  hours: "~4 ч" },
+  { task_number: 19, title: "Реальный контекст",       hours: "~2 ч" },
+];
+const OGE_CROSS: [number, number][] = [];
+
+interface GMastery { total: number; completed: number; isCurrent: boolean }
+
+function GraphNodeCard({
+  node,
+  mastery,
+  isCurrent,
+  onStart,
+}: {
+  node: GNode;
+  mastery: GMastery | undefined;
+  isCurrent: boolean;
+  onStart: () => void;
+}) {
+  const isCompleted = mastery ? mastery.completed >= mastery.total && mastery.total > 0 : false;
+  const isStarted   = mastery ? mastery.completed > 0 || mastery.isCurrent : false;
+  const isLocked    = !mastery;
+
+  const borderCls = isCompleted ? "border-success"
+    : isCurrent    ? "border-accent"
+    : isStarted    ? "border-accent/40"
+    : "border-border";
+
+  const dotCls = isCompleted ? "bg-success"
+    : isCurrent    ? "bg-accent"
+    : isStarted    ? "bg-accent/50"
+    : "bg-fg/15";
+
+  return (
+    <button
+      onClick={() => !isLocked && onStart()}
+      disabled={isLocked}
+      style={{ width: G_CARD_W, height: G_CARD_H }}
+      className={cn(
+        "relative rounded-2xl border-2 bg-bg p-3 text-left transition-shadow",
+        borderCls,
+        isLocked ? "opacity-40 cursor-not-allowed" : "hover:shadow-md cursor-pointer",
+      )}
+    >
+      {isCurrent && (
+        <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-accent text-accent-fg text-[9px] font-black tracking-wider uppercase px-2 py-0.5 whitespace-nowrap">
+          Сейчас
+        </span>
+      )}
+
+      <div className="flex items-center justify-between mb-2">
+        <span className="rounded-lg bg-fg/8 text-fg text-[10px] font-bold px-1.5 py-0.5 leading-none">
+          №{node.task_number}
+        </span>
+        <span className={cn("h-2 w-2 rounded-full shrink-0", dotCls)} />
+      </div>
+
+      <p className="text-[11px] font-bold leading-tight line-clamp-2 mb-1.5">
+        {node.title}
+      </p>
+
+      {mastery ? (
+        <p className="text-[10px] text-muted tabular-nums">
+          {mastery.completed}/{mastery.total} тем
+        </p>
+      ) : (
+        <p className="text-[10px] text-muted">{node.hours}</p>
+      )}
+    </button>
+  );
+}
+
+function KnowledgeGraph({
+  leftTrack,
+  rightTrack,
+  crossEdges,
+  taskMastery,
+  currentTaskNumber,
+  onStartTask,
+}: {
+  leftTrack: GNode[];
+  rightTrack: GNode[];
+  crossEdges: [number, number][];
+  taskMastery: Record<number, GMastery>;
+  currentTaskNumber: number | null;
+  onStartTask: (n: number) => void;
+}) {
+  const maxRows = Math.max(leftTrack.length, rightTrack.length);
+  const svgH = maxRows * G_ROW_H - G_ROW_GAP + 8;
+
+  const cy = (row: number) => row * G_ROW_H + G_CARD_H / 2;
+
+  return (
+    <div className="relative mx-auto" style={{ width: G_TOTAL_W }}>
+      <svg
+        className="absolute top-0 left-0 pointer-events-none z-10"
+        width={G_TOTAL_W}
+        height={svgH}
+        overflow="visible"
+      >
+        {/* In-track left lines */}
+        {leftTrack.slice(0, -1).map((_, i) => (
+          <line
+            key={`ll${i}`}
+            x1={G_LEFT_CX} y1={i * G_ROW_H + G_CARD_H}
+            x2={G_LEFT_CX} y2={(i + 1) * G_ROW_H}
+            stroke="hsl(var(--border))"
+            strokeWidth="1.5"
+            strokeDasharray="4 5"
+          />
+        ))}
+
+        {/* In-track right lines */}
+        {rightTrack.slice(0, -1).map((_, i) => (
+          <line
+            key={`rl${i}`}
+            x1={G_RIGHT_CX} y1={i * G_ROW_H + G_CARD_H}
+            x2={G_RIGHT_CX} y2={(i + 1) * G_ROW_H}
+            stroke="hsl(var(--border))"
+            strokeWidth="1.5"
+            strokeDasharray="4 5"
+          />
+        ))}
+
+        {/* Cross-track "помогает" arrows */}
+        {crossEdges.map(([lRow, rRow], i) => (
+          <line
+            key={`cr${i}`}
+            x1={G_CARD_W}      y1={cy(lRow)}
+            x2={G_CARD_W + G_COL_GAP} y2={cy(rRow)}
+            stroke="hsl(var(--accent))"
+            strokeWidth="1.5"
+            strokeDasharray="4 4"
+            opacity="0.7"
+          />
+        ))}
+      </svg>
+
+      <div className="relative flex gap-[16px]">
+        <div className="flex flex-col gap-[40px]">
+          {leftTrack.map((node) => (
+            <GraphNodeCard
+              key={node.task_number}
+              node={node}
+              mastery={taskMastery[node.task_number]}
+              isCurrent={currentTaskNumber === node.task_number}
+              onStart={() => onStartTask(node.task_number)}
+            />
+          ))}
+        </div>
+        <div className="flex flex-col gap-[40px]">
+          {rightTrack.map((node) => (
+            <GraphNodeCard
+              key={node.task_number}
+              node={node}
+              mastery={taskMastery[node.task_number]}
+              isCurrent={currentTaskNumber === node.task_number}
+              onStart={() => onStartTask(node.task_number)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeMapTab({
+  sections,
+  isLoading,
+  isOge,
+  onStartTask,
+}: {
+  sections: TaskSection[];
+  isLoading: boolean;
+  isOge: boolean;
+  onStartTask: (n: number) => void;
+}) {
+  const taskMastery = useMemo<Record<number, GMastery>>(() => {
+    const map: Record<number, GMastery> = {};
+    for (const s of sections) {
+      map[s.task_number] = {
+        total: s.nodes.length,
+        completed: s.nodes.filter((n) => n.state === "completed").length,
+        isCurrent: s.nodes.some((n) => n.state === "current"),
+      };
+    }
+    return map;
+  }, [sections]);
+
+  const leftTrack  = isOge ? OGE_LEFT  : EGE_LEFT;
+  const rightTrack = isOge ? OGE_RIGHT : EGE_RIGHT;
+  const crossEdges = isOge ? OGE_CROSS : EGE_CROSS;
+
+  const currentTaskNumber = useMemo(() => {
+    for (const node of [...leftTrack, ...rightTrack]) {
+      if (taskMastery[node.task_number]?.isCurrent) return node.task_number;
+    }
+    return null;
+  }, [taskMastery, leftTrack, rightTrack]);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-muted">
+        <Loader2 className="h-6 w-6 animate-spin" />
+        <p className="text-sm">Загружаем карту...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div>
+        <p className="text-[11px] font-bold tracking-widest uppercase text-muted mb-1">
+          Карта знаний
+        </p>
+        <p className="text-sm text-fg/70 leading-relaxed">
+          Каждая следующая тема опирается на предыдущую.{" "}
+          <span className="text-accent font-medium">Жёлтая стрелка</span> — без этого не пойдёт дальше.
+        </p>
+      </div>
+
+      {/* Track labels */}
+      <div className="mx-auto flex gap-[16px]" style={{ width: G_TOTAL_W }}>
+        <div className="flex items-center gap-1.5" style={{ width: G_CARD_W }}>
+          <span className="h-2 w-2 rounded-full bg-accent shrink-0" />
+          <span className="text-[10px] font-black tracking-wider uppercase text-accent">Алгебра</span>
+        </div>
+        <div className="flex items-center gap-1.5" style={{ width: G_CARD_W }}>
+          <span className="h-2 w-2 rounded-full bg-fg shrink-0" />
+          <span className="text-[10px] font-black tracking-wider uppercase text-fg">Геометрия</span>
+        </div>
+      </div>
+
+      {/* Graph */}
+      <KnowledgeGraph
+        leftTrack={leftTrack}
+        rightTrack={rightTrack}
+        crossEdges={crossEdges}
+        taskMastery={taskMastery}
+        currentTaskNumber={currentTaskNumber}
+        onStartTask={onStartTask}
+      />
+
+      {/* Legend */}
+      <div className="mx-auto flex items-center gap-5 pt-2 pb-6" style={{ width: G_TOTAL_W }}>
+        <span className="flex items-center gap-1.5 text-[10px] text-muted">
+          <svg width="20" height="8">
+            <line x1="0" y1="4" x2="20" y2="4" stroke="hsl(var(--border))" strokeWidth="1.5" strokeDasharray="4 4" />
+          </svg>
+          в треке
+        </span>
+        <span className="flex items-center gap-1.5 text-[10px] text-muted">
+          <svg width="20" height="8">
+            <line x1="0" y1="4" x2="20" y2="4" stroke="hsl(var(--accent))" strokeWidth="1.5" strokeDasharray="4 4" />
+          </svg>
+          помогает
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Path section header ──────────────────────────────────────────────────────
 
 const SECTION_STYLES: Record<number, { header: string; badge: string; label: string }> = {
   1: {
@@ -32,12 +343,6 @@ const SECTION_STYLES: Record<number, { header: string; badge: string; label: str
     badge: "bg-danger/20 text-danger",
     label: "text-danger",
   },
-};
-
-const STATUS_STYLES: Record<string, { ring: string; bg: string; badge: string; text: string; label: string }> = {
-  weak:   { ring: "border-danger",  bg: "bg-danger/5",   badge: "bg-danger/15 text-danger",   text: "text-danger",  label: "Слабое место" },
-  medium: { ring: "border-accent",  bg: "bg-accent/5",   badge: "bg-accent/15 text-accent",   text: "text-accent",  label: "В процессе" },
-  strong: { ring: "border-success", bg: "bg-success/5",  badge: "bg-success/15 text-success", text: "text-success", label: "Хорошо" },
 };
 
 function SectionHeader({ section }: { section: TaskSection }) {
@@ -170,169 +475,6 @@ function Connector({ fromOffset, toOffset }: { fromOffset: number; toOffset: num
   );
 }
 
-function PlanGroupCard({ group, priority, onStart }: { group: PlanGroup; priority: number; onStart: () => void }) {
-  const st = STATUS_STYLES[group.status] ?? STATUS_STYLES.medium;
-
-  return (
-    <div className={cn("rounded-2xl border-2 p-4 space-y-3", st.ring, st.bg)}>
-      <div className="flex items-start gap-3">
-        {/* Priority number */}
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fg text-bg text-sm font-black">
-          {priority}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold leading-tight">Задание {group.task_number}</span>
-            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", st.badge)}>
-              {st.label}
-            </span>
-          </div>
-          <p className="text-xs text-muted mt-0.5 leading-tight">{group.title}</p>
-        </div>
-      </div>
-
-      {/* AI reasoning */}
-      <p className="text-sm text-fg/80 leading-relaxed">{group.why}</p>
-
-      {/* Mastery bar */}
-      <div className="space-y-1">
-        <div className="flex justify-between text-[10px] text-muted">
-          <span>Освоение</span>
-          <span>{group.mastery_pct}%</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-border overflow-hidden">
-          <div
-            className={cn("h-full rounded-full transition-all duration-700",
-              group.status === "strong" ? "bg-success" : group.status === "weak" ? "bg-danger" : "bg-accent"
-            )}
-            style={{ width: `${group.mastery_pct}%` }}
-          />
-        </div>
-      </div>
-
-      <button
-        onClick={onStart}
-        className="w-full flex items-center justify-center gap-2 rounded-xl bg-fg text-bg py-2.5 text-sm font-semibold hover:opacity-90 transition"
-      >
-        Начать
-        <ChevronRight className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
-function StudyPlanTab({ onStartTask }: { onStartTask: (taskNumber: number) => void }) {
-  const { data: me } = useMe();
-  const { data: planData, isLoading } = useStudyPlan();
-  const generate = useGeneratePlan();
-
-  const hasDiagnostic = !!me?.diagnostic_completed_at;
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center gap-3 py-16 text-muted">
-        <Loader2 className="h-6 w-6 animate-spin" />
-        <p className="text-sm">Загружаем план...</p>
-      </div>
-    );
-  }
-
-  if (!hasDiagnostic) {
-    return (
-      <div className="flex flex-col items-center gap-6 py-12 px-4 text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-fg/8">
-          <ClipboardList className="h-10 w-10 text-muted" />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold mb-2">Сначала диагностика</h2>
-          <p className="text-sm text-muted leading-relaxed">
-            Чтобы составить персональный план, AI-репетитору нужно знать твой уровень. Пройди входную диагностику — это займёт 15–20 минут.
-          </p>
-        </div>
-        <Link
-          href="/diagnostic"
-          className="flex items-center gap-2 rounded-2xl bg-fg text-bg px-6 py-3.5 text-sm font-bold hover:opacity-90 transition"
-        >
-          <ClipboardList className="h-4 w-4" />
-          Пройти диагностику
-        </Link>
-      </div>
-    );
-  }
-
-  if (!planData?.plan) {
-    return (
-      <div className="flex flex-col items-center gap-6 py-12 px-4 text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-accent/10">
-          <Brain className="h-10 w-10 text-accent" />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold mb-2">Персональный план</h2>
-          <p className="text-sm text-muted leading-relaxed">
-            AI-репетитор проанализирует результаты диагностики и составит оптимальный порядок подготовки — что учить первым, что можно отложить.
-          </p>
-        </div>
-        <button
-          onClick={() => generate.mutate()}
-          disabled={generate.isPending}
-          className="flex items-center gap-2 rounded-2xl bg-fg text-bg px-6 py-3.5 text-sm font-bold hover:opacity-90 transition disabled:opacity-50"
-        >
-          {generate.isPending ? (
-            <><Loader2 className="h-4 w-4 animate-spin" />Составляем план...</>
-          ) : (
-            <><Brain className="h-4 w-4" />Составить план</>
-          )}
-        </button>
-        {generate.isError && (
-          <p className="text-xs text-danger">Не удалось составить план. Попробуй ещё раз.</p>
-        )}
-      </div>
-    );
-  }
-
-  const plan = planData.plan;
-  const generatedDate = new Date(plan.generated_at).toLocaleDateString("ru-RU", {
-    day: "numeric", month: "long",
-  });
-
-  return (
-    <div className="space-y-5">
-      {/* Summary card */}
-      <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4 space-y-2">
-        <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-accent shrink-0" />
-          <span className="text-xs font-semibold text-accent uppercase tracking-wide">Вывод AI-репетитора</span>
-        </div>
-        <p className="text-sm text-fg/90 leading-relaxed">{plan.summary}</p>
-      </div>
-
-      {/* Plan groups */}
-      <div className="space-y-3">
-        {plan.groups.map((group, i) => (
-          <PlanGroupCard
-            key={group.task_number}
-            group={group}
-            priority={i + 1}
-            onStart={() => onStartTask(group.task_number)}
-          />
-        ))}
-      </div>
-
-      {/* Refresh */}
-      <div className="flex items-center justify-between pt-2">
-        <p className="text-[11px] text-muted">Составлен {generatedDate}</p>
-        <button
-          onClick={() => generate.mutate()}
-          disabled={generate.isPending}
-          className="flex items-center gap-1.5 text-xs text-muted hover:text-fg transition disabled:opacity-50"
-        >
-          <RefreshCw className={cn("h-3 w-3", generate.isPending && "animate-spin")} />
-          Обновить
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function SessionPage() {
   const router = useRouter();
@@ -432,7 +574,7 @@ export default function SessionPage() {
               {tab === "path" ? (
                 <><Zap className="h-3.5 w-3.5" />Путь</>
               ) : (
-                <><Brain className="h-3.5 w-3.5" />Мой план</>
+                <>📍 Мой план</>
               )}
             </button>
           ))}
@@ -492,7 +634,12 @@ export default function SessionPage() {
             )}
           </div>
         ) : (
-          <StudyPlanTab onStartTask={handleStartTask} />
+          <KnowledgeMapTab
+            sections={sections}
+            isLoading={isLoading}
+            isOge={isOge}
+            onStartTask={handleStartTask}
+          />
         )}
       </main>
     </>

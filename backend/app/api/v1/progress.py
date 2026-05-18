@@ -5,13 +5,13 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, status
 from openai import AsyncOpenAI
 from pydantic import BaseModel
-from sqlalchemy import Date, cast, func, select
+from sqlalchemy import Date, Integer, cast, func, select
 
 from app.config import settings
 from app.core.deps import CurrentUser, DbSession, RedisClient
 from app.models.attempt import Attempt
-from app.models.progress import UserTopicProgress
 from app.models.streak import Streak
+from app.models.task import Task
 from app.models.topic import Topic
 from app.services.bank_ege_client import OGE_TASK_SECTIONS, TASK_SECTIONS
 
@@ -157,24 +157,29 @@ async def get_score_prediction(user: CurrentUser, db: DbSession, redis: RedisCli
     if db_user.exam_date:
         days_left = max(0, (db_user.exam_date - date.today()).days)
 
+    # Count correct answers per topic from attempts (same source as the path/knowledge map)
     rows = (
         await db.execute(
-            select(UserTopicProgress, Topic)
-            .join(Topic, Topic.id == UserTopicProgress.topic_id)
-            .where(UserTopicProgress.user_id == user.id)
+            select(
+                Topic.exam_task_number,
+                func.count(Attempt.id).label("total"),
+                func.sum(Attempt.is_correct.cast(Integer)).label("correct"),
+            )
+            .join(Task, Task.topic_id == Topic.id)
+            .join(Attempt, Attempt.task_id == Task.id)
+            .where(Attempt.user_id == user.id)
             .where(Topic.exam_task_number.isnot(None))
+            .group_by(Topic.exam_task_number)
         )
     ).all()
 
     task_sums: dict[int, list[float]] = {}
     task_stats: dict[int, dict] = {}
-    for prog, topic in rows:
-        tn = topic.exam_task_number
-        task_sums.setdefault(tn, []).append(min(prog.correct_count / 5, 1.0))
-        if tn not in task_stats:
-            task_stats[tn] = {"correct": 0, "attempts": 0}
-        task_stats[tn]["correct"] += prog.correct_count
-        task_stats[tn]["attempts"] += prog.attempts_count
+    for tn, total, correct in rows:
+        correct_int = int(correct or 0)
+        total_int = int(total or 0)
+        task_sums.setdefault(tn, []).append(min(correct_int / 5, 1.0))
+        task_stats[tn] = {"correct": correct_int, "attempts": total_int}
 
     mastery = {tn: sum(v) / len(v) for tn, v in task_sums.items()}
 

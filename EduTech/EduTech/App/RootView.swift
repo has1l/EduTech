@@ -115,6 +115,10 @@ struct MainTabsView: View {
             }
             await checkStreakLost()
             await appState.fetchBoosterCount()
+            if appState.pendingDiagnostic {
+                appState.pendingDiagnostic = false
+                router.push(.diagnostic)
+            }
         }
     }
 }

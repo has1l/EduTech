@@ -162,6 +162,7 @@ struct OnboardingFlow: View {
                 name: nil
             ))
             appState.currentUser = user
+            appState.pendingDiagnostic = true
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription ?? "Не удалось сохранить"
         }

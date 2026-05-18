@@ -9,6 +9,7 @@ final class AppState {
     var bootstrapError: String?
     var lastDiagnosticResult: DiagnosticResult?
     var boosterCount: Int = 0
+    var pendingDiagnostic = false
 
     func fetchBoosterCount() async {
         if let c: BoosterCount = try? await APIClient.shared.request(.boosterCount) {

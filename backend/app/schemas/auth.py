@@ -30,9 +30,11 @@ class UserPublic(BaseModel):
     name: str | None
     grade: int | None
     current_score: int | None
+    oge_current_score: int | None = None
     target_score: int | None
     exam_date: date | None
     diagnostic_completed_at: datetime | None = None
+    oge_diagnostic_completed_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

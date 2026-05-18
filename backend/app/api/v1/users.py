@@ -14,6 +14,7 @@ class UpdateProfileRequest(BaseModel):
     name: str | None = None
     grade: int | None = Field(default=None, ge=8, le=11)
     current_score: int | None = Field(default=None, ge=0, le=100)
+    oge_current_score: int | None = Field(default=None, ge=0, le=10)
     target_score: int | None = Field(default=None, ge=0, le=100)
     exam_date: date | None = None
 

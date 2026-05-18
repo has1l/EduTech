@@ -21,6 +21,9 @@ class User(Base, UUIDPrimaryKey, Timestamped):
     target_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     exam_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    oge_current_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    oge_diagnostic_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     study_plan: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     plan_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     diagnostic_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

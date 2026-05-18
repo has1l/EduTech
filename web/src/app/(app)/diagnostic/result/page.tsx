@@ -73,22 +73,33 @@ function getVerdict(pct: number): { title: string; sub: string } {
 
 export default function DiagnosticResultPage() {
   const [result, setResult] = useState<DiagnosticResult | null>(null);
+  const [scoreSaved, setScoreSaved] = useState(false);
   const { data: me } = useMe();
   const updateProfile = useUpdateProfile();
 
+  // Parse from sessionStorage immediately so UI shows without waiting for me
   useEffect(() => {
     const raw = sessionStorage.getItem("diagnostic_result");
-    if (raw) {
-      try {
-        const parsed: DiagnosticResult = JSON.parse(raw);
-        setResult(parsed);
-        sessionStorage.removeItem("diagnostic_result");
-        const score = computeCurrentScore(parsed.correct, parsed.total, me?.grade ?? null);
-        updateProfile.mutate({ current_score: score });
-      } catch {}
+    if (!raw) return;
+    try {
+      const parsed: DiagnosticResult = JSON.parse(raw);
+      setResult(parsed);
+      sessionStorage.removeItem("diagnostic_result");
+    } catch {}
+  }, []);
+
+  // Save score once we have both the result and the user's grade
+  useEffect(() => {
+    if (!result || !me || scoreSaved) return;
+    setScoreSaved(true);
+    const score = computeCurrentScore(result.correct, result.total, me.grade);
+    if (me.grade === 9) {
+      updateProfile.mutate({ oge_current_score: score });
+    } else {
+      updateProfile.mutate({ current_score: score });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [result, me?.grade]);
 
   if (!result) {
     return (

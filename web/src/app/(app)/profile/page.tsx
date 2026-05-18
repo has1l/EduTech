@@ -218,34 +218,41 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Current level */}
-      {me.current_score != null ? (
-        <div className="mb-8 rounded-2xl border border-border px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted mb-0.5">Текущий уровень по диагностике</p>
-            <p className="text-2xl font-black">
-              {isOge ? `Оценка ${me.current_score}` : `${me.current_score} баллов`}
-            </p>
-          </div>
+      {/* Current level — scoped to the active exam profile */}
+      {(() => {
+        const score = isOge ? me.oge_current_score : me.current_score;
+        const hasDiag = isOge ? !!me.oge_diagnostic_completed_at : !!me.diagnostic_completed_at;
+        if (hasDiag && score != null) {
+          return (
+            <div className="mb-8 rounded-2xl border border-border px-5 py-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted mb-0.5">Текущий уровень по диагностике</p>
+                <p className="text-2xl font-black">
+                  {isOge ? `Оценка ${score}` : `${score} баллов`}
+                </p>
+              </div>
+              <Link
+                href="/diagnostic"
+                className="text-xs text-muted hover:text-accent transition underline underline-offset-2"
+              >
+                Пройти заново
+              </Link>
+            </div>
+          );
+        }
+        return (
           <Link
             href="/diagnostic"
-            className="text-xs text-muted hover:text-accent transition underline underline-offset-2"
+            className="mb-8 flex items-center gap-3 rounded-2xl border border-dashed border-border px-5 py-4 hover:border-accent hover:bg-accent/5 transition"
           >
-            Пройти заново
+            <ClipboardList className="h-5 w-5 shrink-0 text-accent" />
+            <div>
+              <p className="text-sm font-medium">Диагностика не пройдена</p>
+              <p className="text-xs text-muted">Пройди тест — мы определим твой уровень</p>
+            </div>
           </Link>
-        </div>
-      ) : (
-        <Link
-          href="/diagnostic"
-          className="mb-8 flex items-center gap-3 rounded-2xl border border-dashed border-border px-5 py-4 hover:border-accent hover:bg-accent/5 transition"
-        >
-          <ClipboardList className="h-5 w-5 shrink-0 text-accent" />
-          <div>
-            <p className="text-sm font-medium">Диагностика не пройдена</p>
-            <p className="text-xs text-muted">Пройди тест — мы определим твой уровень</p>
-          </div>
-        </Link>
-      )}
+        );
+      })()}
 
       {/* Exam settings */}
       <form onSubmit={onSubmit} className="flex flex-col gap-6">

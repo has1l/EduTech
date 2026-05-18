@@ -4,9 +4,11 @@ export type User = {
   name: string | null;
   grade: number | null;
   current_score: number | null;
+  oge_current_score: number | null;
   target_score: number | null;
   exam_date: string | null;
   diagnostic_completed_at: string | null;
+  oge_diagnostic_completed_at: string | null;
 };
 
 export type TokenPair = {

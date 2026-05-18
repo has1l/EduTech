@@ -182,7 +182,8 @@ function StudyPlanTab({
   const { data: planData, isLoading: planLoading } = useStudyPlan();
   const generate = useGeneratePlan();
 
-  const hasDiagnostic = !!me?.diagnostic_completed_at;
+  const isOge = (me?.grade ?? 11) <= 9;
+  const hasDiagnostic = isOge ? !!me?.oge_diagnostic_completed_at : !!me?.diagnostic_completed_at;
 
   // Reorder sections by AI plan priority
   const orderedSections = useMemo(() => {

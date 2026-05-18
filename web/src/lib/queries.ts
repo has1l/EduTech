@@ -24,6 +24,7 @@ export type UpdateProfileInput = {
   name?: string;
   grade?: number;
   current_score?: number;
+  oge_current_score?: number;
   target_score?: number;
   exam_date?: string;
 };

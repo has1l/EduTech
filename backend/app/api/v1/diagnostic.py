@@ -127,7 +127,11 @@ async def submit_diagnostic(
     from app.models.user import User
     db_user = await db.get(User, user.id)
     if db_user is not None:
-        db_user.diagnostic_completed_at = datetime.now(timezone.utc)
+        is_oge_user = (getattr(db_user, "grade", None) or 11) <= 9
+        if is_oge_user:
+            db_user.oge_diagnostic_completed_at = datetime.now(timezone.utc)
+        else:
+            db_user.diagnostic_completed_at = datetime.now(timezone.utc)
 
     await db.commit()
     await redis.delete(f"{_SESSION_PREFIX}{body.session_id}")

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Flame, Snowflake, Trophy, LogOut, ClipboardList } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppNav } from "@/components/app-nav";
 import { Button } from "@/components/ui/button";
 import { apiErrorMessage } from "@/lib/api";
@@ -91,8 +92,11 @@ function Avatar({ name, email }: { name: string | null; email: string }) {
   );
 }
 
+type ProfileSnapshot = { target_score: number; exam_year: number };
+
 export default function ProfilePage() {
   const router = useRouter();
+  const qc = useQueryClient();
   const clear = useAuth((s) => s.clear);
   const { data: me } = useMe();
   const { data: streak } = useStreak();
@@ -100,6 +104,24 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false);
 
   const isOge = me?.grade != null && me.grade <= 9;
+
+  // Per-exam snapshots — remember settings when switching between OGE/EGE
+  const ogeSnap = useRef<ProfileSnapshot | null>(null);
+  const egeSnap = useRef<ProfileSnapshot | null>(null);
+  const snapInitialized = useRef(false);
+
+  useEffect(() => {
+    if (!me || snapInitialized.current) return;
+    snapInitialized.current = true;
+    const year = me.exam_date ? parseInt(me.exam_date.slice(0, 4)) : currentYear;
+    if (me.grade != null && me.grade <= 9) {
+      ogeSnap.current = { target_score: me.target_score ?? 4, exam_year: year };
+      egeSnap.current = { target_score: 65, exam_year: year };
+    } else {
+      egeSnap.current = { target_score: me.target_score ?? 65, exam_year: year };
+      ogeSnap.current = { target_score: 4, exam_year: year };
+    }
+  }, [me]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -114,8 +136,20 @@ export default function ProfilePage() {
   const formIsOge = grade === 9;
 
   function handleGradeChange(g: 9 | 11) {
+    const cur = form.getValues();
+    // Save current values to the leaving grade's snapshot
+    if (cur.grade === 9) {
+      ogeSnap.current = { target_score: cur.target_score, exam_year: cur.exam_year };
+    } else {
+      egeSnap.current = { target_score: cur.target_score, exam_year: cur.exam_year };
+    }
+    // Restore the target grade's snapshot (or sensible defaults)
+    const snap = g === 9
+      ? (ogeSnap.current ?? { target_score: 4, exam_year: cur.exam_year })
+      : (egeSnap.current ?? { target_score: 65, exam_year: cur.exam_year });
     form.setValue("grade", g);
-    form.setValue("target_score", g === 9 ? 4 : 65);
+    form.setValue("target_score", snap.target_score);
+    form.setValue("exam_year", snap.exam_year);
   }
 
   const onSubmit = form.handleSubmit(async (v) => {
@@ -124,6 +158,14 @@ export default function ProfilePage() {
       target_score: v.target_score,
       exam_date: `${v.exam_year}-06-01`,
     });
+    // Update snapshot for saved grade so the next switch restores correctly
+    if (v.grade === 9) {
+      ogeSnap.current = { target_score: v.target_score, exam_year: v.exam_year };
+    } else {
+      egeSnap.current = { target_score: v.target_score, exam_year: v.exam_year };
+    }
+    // Force fresh score prediction (backend also cleared Redis on PATCH /me)
+    qc.invalidateQueries({ queryKey: ["progress", "score-prediction"] });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   });

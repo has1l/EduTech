@@ -3,7 +3,7 @@ from datetime import date
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser, DbSession, RedisClient
 from app.schemas.auth import UserPublic
 
 
@@ -24,8 +24,11 @@ async def get_me(user: CurrentUser) -> UserPublic:
 
 
 @router.patch("/me", response_model=UserPublic)
-async def update_me(body: UpdateProfileRequest, user: CurrentUser, db: DbSession) -> UserPublic:
+async def update_me(body: UpdateProfileRequest, user: CurrentUser, db: DbSession, redis: RedisClient) -> UserPublic:
     data = body.model_dump(exclude_unset=True)
+    prediction_fields = {"grade", "target_score", "exam_date"}
+    if prediction_fields & data.keys():
+        await redis.delete(f"score_pred:{user.id}")
     for key, value in data.items():
         setattr(user, key, value)
     await db.commit()

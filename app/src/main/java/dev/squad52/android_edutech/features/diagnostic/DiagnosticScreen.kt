@@ -1,5 +1,6 @@
 package dev.squad52.android_edutech.features.diagnostic
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -258,8 +259,9 @@ private fun DiagnosticTaskPage(
                         containerColor = if (isSelected) AppAccent.copy(alpha = 0.15f) else Color.Transparent,
                         contentColor = if (isSelected) AppAccent else colors.foreground
                     ),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                        width = if (isSelected) 2.dp else 1.dp
+                    border = BorderStroke(
+                        width = if (isSelected) 2.dp else 1.dp,
+                        color = if (isSelected) AppAccent else colors.border
                     )
                 ) {
                     Row(

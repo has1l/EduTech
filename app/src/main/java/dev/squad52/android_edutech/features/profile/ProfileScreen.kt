@@ -1,5 +1,6 @@
 package dev.squad52.android_edutech.features.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -160,7 +161,7 @@ private fun GradeChip(
             containerColor = if (selected) AppAccent else colors.surface,
             contentColor = if (selected) AppAccentFg else colors.foreground
         ),
-        border = if (!selected) ButtonDefaults.outlinedButtonBorder else null
+        border = if (!selected) BorderStroke(1.dp, LocalAppColors.current.border) else null
     ) {
         Text(label, fontWeight = FontWeight.SemiBold)
     }

@@ -4,13 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -44,20 +48,16 @@ fun SessionPathScreen(
             .background(colors.background)
     ) {
         // Header
-        Row(
+        Text(
+            text = "Путь",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = colors.foreground,
+            textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "EduTech",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = AppAccent
-            )
-        }
+                .padding(top = 16.dp, bottom = 8.dp)
+        )
 
         // Tab pills
         Row(
@@ -131,13 +131,14 @@ private fun PathTab(
         }
         is PathUiState.Success -> {
             val sections = pathState.path.sections
+            val total = sections.size
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 sections.forEach { section ->
                     item {
-                        SectionHeader(section)
+                        SectionHeader(section, total)
                     }
                     item {
                         ZigzagNodes(section.nodes, onNodeTap)
@@ -282,7 +283,7 @@ private fun PlanGroupCard(group: PlanGroup, onNodeTap: (String) -> Unit) {
 }
 
 @Composable
-private fun SectionHeader(section: TaskSection) {
+private fun SectionHeader(section: TaskSection, totalSections: Int) {
     val colors = LocalAppColors.current
     val headerColor = when (section.difficulty) {
         1 -> AppSuccess
@@ -292,31 +293,47 @@ private fun SectionHeader(section: TaskSection) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .background(headerColor.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .background(colors.surface, RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(headerColor.copy(alpha = 0.15f))
+        ) {
+            Text(
+                text = "${section.taskNumber}",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = headerColor
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "Задание ${section.taskNumber}",
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
+                fontSize = 13.sp,
                 color = headerColor
             )
             Text(
                 text = section.title,
                 fontSize = 13.sp,
-                color = colors.muted
+                color = colors.foreground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        val diffLabel = when (section.difficulty) {
-            1 -> "Лёгкое"
-            2 -> "Среднее"
-            else -> "Сложное"
-        }
-        Text(diffLabel, fontSize = 12.sp, color = headerColor)
+        Text(
+            text = "${section.taskNumber}/$totalSections",
+            fontSize = 13.sp,
+            color = colors.muted,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 

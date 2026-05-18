@@ -1,5 +1,6 @@
 package dev.squad52.android_edutech.features.task
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -123,9 +124,6 @@ fun DialogueScreen(
                         colors = AssistChipDefaults.assistChipColors(
                             containerColor = colors.surface,
                             labelColor = colors.foreground
-                        ),
-                        border = AssistChipDefaults.assistChipBorder(
-                            borderColor = colors.border
                         )
                     )
                 }
@@ -254,7 +252,7 @@ private fun ChatBubble(msg: ChatMessage) {
                         colors = AssistChipDefaults.assistChipColors(
                             containerColor = Color.Transparent
                         ),
-                        border = AssistChipDefaults.assistChipBorder(borderColor = AppAccent)
+                        border = BorderStroke(1.dp, AppAccent)
                     )
                 }
             }

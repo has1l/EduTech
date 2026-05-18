@@ -59,25 +59,155 @@ struct ProgressOverviewView: View {
 
 private struct StreakCard: View {
     let streak: Streak?
+    @State private var expanded = true
+
     var body: some View {
         let current = streak?.currentStreak ?? 0
         let longest = streak?.longestStreak ?? 0
         let freezes = streak?.freezesAvailable ?? 0
-        HStack(spacing: 16) {
-            ZStack {
-                Circle().fill(Color.appAccent).frame(width: 56, height: 56)
-                Image(systemName: "flame.fill").foregroundStyle(Color.appAccentFg).font(.title2)
+
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle().fill(Color.appAccent).frame(width: 56, height: 56)
+                    Image(systemName: "flame.fill").foregroundStyle(Color.appAccentFg).font(.title2)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(current)").font(.title2.bold())
+                        Text("дн. подряд").font(.body).foregroundStyle(Color.appMuted)
+                    }
+                    Text("Рекорд: \(longest) · Заморозок: \(freezes)")
+                        .font(.caption).foregroundStyle(Color.appMuted)
+                }
+                Spacer()
+                Button {
+                    withAnimation(.spring(duration: 0.3)) { expanded.toggle() }
+                } label: {
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.bold())
+                        .foregroundStyle(Color.appMuted)
+                        .padding(6)
+                        .background(Color.appBorder.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(current) дн. подряд").font(.title2.bold())
-                Text("Рекорд: \(longest)  ·  Заморозок: \(freezes)").font(.caption).foregroundStyle(Color.appMuted)
+            .padding(18)
+
+            if expanded {
+                calendarView
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 18)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            Spacer()
         }
-        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay { RoundedRectangle(cornerRadius: 22).strokeBorder(Color.appBorder, lineWidth: 1) }
         .clipShape(RoundedRectangle(cornerRadius: 22))
+    }
+
+    private var calendarView: some View {
+        let cols = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+        let labels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(monthLabel)
+                .font(.caption2)
+                .foregroundStyle(Color.appMuted.opacity(0.7))
+            LazyVGrid(columns: cols, spacing: 4) {
+                ForEach(labels, id: \.self) { l in
+                    Text(l)
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(Color.appMuted.opacity(0.5))
+                        .frame(maxWidth: .infinity)
+                }
+                ForEach(Array(calendarCells.enumerated()), id: \.offset) { _, day in
+                    DayCell(day: day, activeDates: activeDates)
+                }
+            }
+        }
+    }
+
+    private var calendarCells: [Date] {
+        let cal = Calendar(identifier: .gregorian)
+        let today = cal.startOfDay(for: Date())
+        let weekday = cal.component(.weekday, from: today)
+        let mondayOffset = weekday == 1 ? 6 : weekday - 2
+        guard let start = cal.date(byAdding: .day, value: -(mondayOffset + 28), to: today) else { return [] }
+        return (0..<35).compactMap { cal.date(byAdding: .day, value: $0, to: start) }
+    }
+
+    private var activeDates: Set<Date> {
+        let cal = Calendar(identifier: .gregorian)
+        guard let current = streak?.currentStreak, current > 0,
+              let lastStr = streak?.lastSessionDate else { return [] }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        guard let last = fmt.date(from: String(lastStr.prefix(10))) else { return [] }
+        let lastDay = cal.startOfDay(for: last)
+        var dates = Set<Date>()
+        for i in 0..<current {
+            if let d = cal.date(byAdding: .day, value: -i, to: lastDay) {
+                dates.insert(cal.startOfDay(for: d))
+            }
+        }
+        return dates
+    }
+
+    private var monthLabel: String {
+        guard let first = calendarCells.first, let last = calendarCells.last else { return "" }
+        let cal = Calendar(identifier: .gregorian)
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "ru_RU")
+        fmt.dateFormat = "MMM"
+        let m1 = cal.component(.month, from: first)
+        let m2 = cal.component(.month, from: last)
+        let year = cal.component(.year, from: last)
+        if m1 == m2 {
+            fmt.dateFormat = "MMMM yyyy"
+            return fmt.string(from: first).capitalized
+        }
+        return "\(fmt.string(from: first).capitalized) — \(fmt.string(from: last).capitalized) \(year)"
+    }
+}
+
+private struct DayCell: View {
+    let day: Date
+    let activeDates: Set<Date>
+
+    private var cal: Calendar { Calendar(identifier: .gregorian) }
+    private var today: Date { cal.startOfDay(for: Date()) }
+    private var dayStart: Date { cal.startOfDay(for: day) }
+    private var isActive: Bool { activeDates.contains(dayStart) }
+    private var isToday: Bool { dayStart == today }
+    private var isFuture: Bool { dayStart > today }
+    private var dayNum: Int { cal.component(.day, from: day) }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(
+                    isActive ? Color.appAccent :
+                    isFuture ? Color.appBorder.opacity(0.15) :
+                    Color.appBorder.opacity(0.4)
+                )
+            if isToday && !isActive {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.appAccent, lineWidth: 2)
+                Text("\(dayNum)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.appFg)
+            } else if isActive {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.appAccentFg)
+            } else {
+                Text("\(dayNum)")
+                    .font(.system(size: 10, weight: isFuture ? .regular : .medium))
+                    .foregroundStyle(isFuture ? Color.appMuted.opacity(0.2) : Color.appMuted.opacity(0.6))
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
     }
 }
 

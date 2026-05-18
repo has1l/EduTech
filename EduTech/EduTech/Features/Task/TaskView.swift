@@ -348,7 +348,7 @@ struct TaskView: View {
         HStack(spacing: 12) {
             MascotView(kind: .investigating, size: 44).frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Не то").font(.subheadline.bold()).foregroundStyle(Color.appDanger)
+                Text("Ошибка").font(.subheadline.bold()).foregroundStyle(Color.appDanger)
                 Text("Твой ответ: \(userAnswer)").font(.caption).foregroundStyle(Color.appMuted)
             }
             Spacer()

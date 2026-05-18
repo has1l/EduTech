@@ -1,5 +1,6 @@
 package dev.squad52.android_edutech.features.task
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -206,8 +207,8 @@ fun TaskSessionScreen(
                     },
                     enabled = !addingMore,
                     shape = RoundedCornerShape(50),
-                    colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = AppAccent),
-                    border = ButtonDefaults.outlinedButtonBorder
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppAccent),
+                    border = BorderStroke(1.dp, AppAccent)
                 ) {
                     if (addingMore) {
                         CircularProgressIndicator(color = AppAccent, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)

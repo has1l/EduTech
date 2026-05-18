@@ -61,15 +61,13 @@ fun MathText(
                                 delay(150)
                                 view.evaluateJavascript("document.body.scrollHeight") { h ->
                                     h?.trim('"')?.toDoubleOrNull()?.let { px ->
-                                        val density = ctx.resources.displayMetrics.density
-                                        webHeight = (px / density).dp
+                                        webHeight = (px + 8).dp
                                     }
                                 }
                                 delay(750)
                                 view.evaluateJavascript("document.body.scrollHeight") { h ->
                                     h?.trim('"')?.toDoubleOrNull()?.let { px ->
-                                        val density = ctx.resources.displayMetrics.density
-                                        webHeight = (px / density).dp
+                                        webHeight = (px + 8).dp
                                     }
                                 }
                             }

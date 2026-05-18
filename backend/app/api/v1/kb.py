@@ -2,15 +2,30 @@ import uuid
 from datetime import datetime, timezone
 from typing import TypedDict
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.deps import CurrentUser, DbSession
 from app.models.booster import KnowledgeBaseItem
+from app.models.task import Task
+from app.models.topic import Topic
 
 router = APIRouter()
+
+_OGE_SUBJECT_CODE = "math_oge"
+_EGE_SUBJECT_CODE = "math_ege"
+
+
+async def _user_subject_id(user: CurrentUser, db: DbSession) -> uuid.UUID:
+    from app.models.subject import Subject
+    is_oge = (getattr(user, "grade", None) or 11) <= 9
+    code = _OGE_SUBJECT_CODE if is_oge else _EGE_SUBJECT_CODE
+    subj = await db.scalar(select(Subject).where(Subject.code == code))
+    if subj is None:
+        raise HTTPException(status_code=500, detail="Subject not found")
+    return subj.id
 
 
 class _Level(TypedDict):
@@ -53,8 +68,13 @@ class AddKBIn(BaseModel):
 
 @router.get("/stats", response_model=KBStats)
 async def get_kb_stats(user: CurrentUser, db: DbSession) -> KBStats:
+    subj_id = await _user_subject_id(user, db)
     rows = (await db.execute(
-        select(KnowledgeBaseItem).where(KnowledgeBaseItem.user_id == user.id)
+        select(KnowledgeBaseItem)
+        .join(Task, Task.id == KnowledgeBaseItem.task_id)
+        .join(Topic, Topic.id == Task.topic_id)
+        .where(KnowledgeBaseItem.user_id == user.id)
+        .where(Topic.subject_id == subj_id)
     )).scalars().all()
     count = len(rows)
     level = _get_level(count)

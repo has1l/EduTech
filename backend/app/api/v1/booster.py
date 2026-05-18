@@ -8,8 +8,23 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.core.deps import CurrentUser, DbSession
 from app.models.booster import BoosterItem
+from app.models.task import Task
+from app.models.topic import Topic
 
 router = APIRouter()
+
+_OGE_SUBJECT_CODE = "math_oge"
+_EGE_SUBJECT_CODE = "math_ege"
+
+
+async def _user_subject_id(user: CurrentUser, db: DbSession) -> uuid.UUID:
+    from app.models.subject import Subject
+    is_oge = (getattr(user, "grade", None) or 11) <= 9
+    code = _OGE_SUBJECT_CODE if is_oge else _EGE_SUBJECT_CODE
+    subj = await db.scalar(select(Subject).where(Subject.code == code))
+    if subj is None:
+        raise HTTPException(status_code=500, detail="Subject not found")
+    return subj.id
 
 
 class BoosterItemOut(BaseModel):
@@ -35,9 +50,13 @@ class UpdateReasonIn(BaseModel):
 
 @router.get("", response_model=list[BoosterItemOut])
 async def get_booster(user: CurrentUser, db: DbSession) -> list[BoosterItemOut]:
+    subj_id = await _user_subject_id(user, db)
     rows = (await db.execute(
         select(BoosterItem)
+        .join(Task, Task.id == BoosterItem.task_id)
+        .join(Topic, Topic.id == Task.topic_id)
         .where(BoosterItem.user_id == user.id)
+        .where(Topic.subject_id == subj_id)
         .order_by(BoosterItem.added_at.desc())
     )).scalars().all()
     return [
@@ -54,8 +73,13 @@ async def get_booster(user: CurrentUser, db: DbSession) -> list[BoosterItemOut]:
 
 @router.get("/count")
 async def get_booster_count(user: CurrentUser, db: DbSession) -> dict:
+    subj_id = await _user_subject_id(user, db)
     rows = (await db.execute(
-        select(BoosterItem).where(BoosterItem.user_id == user.id)
+        select(BoosterItem)
+        .join(Task, Task.id == BoosterItem.task_id)
+        .join(Topic, Topic.id == Task.topic_id)
+        .where(BoosterItem.user_id == user.id)
+        .where(Topic.subject_id == subj_id)
     )).scalars().all()
     return {"count": len(rows)}
 

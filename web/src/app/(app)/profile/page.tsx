@@ -164,8 +164,12 @@ export default function ProfilePage() {
     } else {
       egeSnap.current = { target_score: v.target_score, exam_year: v.exam_year };
     }
-    // Force fresh score prediction (backend also cleared Redis on PATCH /me)
+    // Force fresh data for the new exam profile
     qc.invalidateQueries({ queryKey: ["progress", "score-prediction"] });
+    qc.invalidateQueries({ queryKey: ["sessions", "path"] });
+    qc.invalidateQueries({ queryKey: ["sessions", "today"] });
+    qc.invalidateQueries({ queryKey: ["booster"] });
+    qc.invalidateQueries({ queryKey: ["kb"] });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   });

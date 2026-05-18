@@ -181,11 +181,12 @@ private fun QuizPhase(
             DiagnosticTaskPage(
                 task = currentTask,
                 savedAnswer = quiz.answers[currentTask.id] ?: "",
-                onAnswer = { answer -> onAnswer(currentTask.id, answer) }
+                onAnswer = { answer -> onAnswer(currentTask.id, answer) },
+                modifier = Modifier.weight(1f)
             )
+        } else {
+            Spacer(Modifier.weight(1f))
         }
-
-        Spacer(Modifier.weight(1f))
 
         Row(
             modifier = Modifier
@@ -224,7 +225,8 @@ private fun QuizPhase(
 private fun DiagnosticTaskPage(
     task: EduTask,
     savedAnswer: String,
-    onAnswer: (String) -> Unit
+    onAnswer: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val colors = LocalAppColors.current
     var textAnswer by remember(task.id) { mutableStateOf(savedAnswer) }
@@ -232,7 +234,7 @@ private fun DiagnosticTaskPage(
     val isMultiple = !task.options.isNullOrEmpty()
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),

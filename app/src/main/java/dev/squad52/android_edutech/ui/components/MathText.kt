@@ -96,7 +96,7 @@ private fun buildMathHtml(text: String, colorHex: String, fontSize: Int): String
     return """<!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <link rel="stylesheet" href="katex.min.css">
 <script defer src="katex.min.js"></script>
 <script defer src="auto-render.min.js"
@@ -104,8 +104,11 @@ private fun buildMathHtml(text: String, colorHex: String, fontSize: Int): String
 </script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, sans-serif; font-size: ${fontSize}px; color: $colorHex; line-height: 1.5; background: transparent; padding: 2px 0; word-break: break-word; }
+html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+body { font-family: sans-serif; font-size: ${fontSize}px; color: $colorHex; line-height: 1.5; background: transparent; padding: 2px 0; word-break: break-word; }
 .katex { font-size: 1em; }
+.katex-display { overflow-x: auto; overflow-y: hidden; }
+img, svg { max-width: 100%; height: auto; }
 </style>
 </head>
 <body>$escaped</body>

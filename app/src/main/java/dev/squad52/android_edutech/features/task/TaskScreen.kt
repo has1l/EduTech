@@ -131,159 +131,136 @@ private fun ConditionTab(
     var textAnswer by remember { mutableStateOf("") }
     var localSelected by remember { mutableStateOf<String?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Question image
-        if (!task.questionImageUrl.isNullOrBlank()) {
-            TaskImage(url = task.questionImageUrl)
-        }
-
-        // Question text
-        if (task.questionText.isNotBlank()) {
-            MathText(text = task.questionText, fontSize = 16)
-        }
-
-        // Phase banners
-        when (phase) {
-            TaskPhase.Correct -> {
-                ResultBanner(
-                    text = "✓ Верно!",
-                    color = AppSuccess,
-                    bgColor = AppSuccess.copy(alpha = 0.15f)
-                )
-                onNext?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = it,
+    Column(Modifier.fillMaxSize()) {
+        // Scrollable: question + answer options
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (!task.questionImageUrl.isNullOrBlank()) {
+                TaskImage(url = task.questionImageUrl)
+            }
+            if (task.questionText.isNotBlank()) {
+                MathText(text = task.questionText, fontSize = 16)
+            }
+            if (phase == TaskPhase.Question || phase == TaskPhase.Submitting) {
+                if (isMultipleChoice) {
+                    MultipleChoiceOptions(
+                        options = task.options!!,
+                        selected = localSelected,
+                        onSelect = { localSelected = it }
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = textAnswer,
+                        onValueChange = { textAnswer = it },
+                        label = { Text("Введи ответ") },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppSuccess)
-                    ) {
-                        Text("Следующее", fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                }
-            }
-            TaskPhase.Wrong -> {
-                ResultBanner(
-                    text = "✗ Неверно: $selectedAnswer",
-                    color = AppDanger,
-                    bgColor = AppDanger.copy(alpha = 0.15f)
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Button(
-                        onClick = onStartDialogue,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
-                    ) {
-                        Text("Помоги разобрать", fontWeight = FontWeight.Bold, color = AppAccentFg, fontSize = 13.sp)
-                    }
-                    Button(
-                        onClick = onGiveUp,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.surface)
-                    ) {
-                        Text("Объяснить сразу", fontWeight = FontWeight.Bold, color = colors.foreground, fontSize = 13.sp)
-                    }
-                }
-            }
-            TaskPhase.GiveUp -> {
-                correctAnswer?.let { ans ->
-                    ResultBanner(
-                        text = "Правильный ответ: $ans",
-                        color = AppAccent,
-                        bgColor = AppAccent.copy(alpha = 0.15f)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AppAccent,
+                            focusedLabelColor = AppAccent,
+                            unfocusedBorderColor = colors.border,
+                            focusedTextColor = colors.foreground,
+                            unfocusedTextColor = colors.foreground
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = { if (textAnswer.isNotBlank()) onSubmit(textAnswer) }
+                        ),
+                        singleLine = true
                     )
                 }
-                onNext?.let {
-                    Button(
-                        onClick = it,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.surface)
-                    ) {
-                        Text("Следующее", fontWeight = FontWeight.Bold, color = colors.foreground)
-                    }
-                }
             }
-            else -> {}
         }
 
-        // Answer input
-        if (phase == TaskPhase.Question || phase == TaskPhase.Submitting) {
-            if (isMultipleChoice) {
-                MultipleChoiceOptions(
-                    options = task.options!!,
-                    selected = localSelected,
-                    onSelect = { localSelected = it }
-                )
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = { localSelected?.let { onSubmit(it) } },
-                    enabled = localSelected != null && phase != TaskPhase.Submitting,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppAccent,
-                        contentColor = AppAccentFg
-                    )
-                ) {
-                    if (phase == TaskPhase.Submitting) {
-                        CircularProgressIndicator(
-                            color = AppAccentFg,
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text("Ответить", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        // Fixed bottom: result banners + action buttons
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            when (phase) {
+                TaskPhase.Correct -> {
+                    ResultBanner("✓ Верно!", AppSuccess, AppSuccess.copy(alpha = 0.15f))
+                    onNext?.let {
+                        Button(
+                            onClick = it,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = AppSuccess)
+                        ) {
+                            Text("Следующее", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
                     }
                 }
-            } else {
-                OutlinedTextField(
-                    value = textAnswer,
-                    onValueChange = { textAnswer = it },
-                    label = { Text("Введи ответ") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppAccent,
-                        focusedLabelColor = AppAccent,
-                        unfocusedBorderColor = colors.border,
-                        focusedTextColor = colors.foreground,
-                        unfocusedTextColor = colors.foreground
-                    ),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(
-                        onDone = { if (textAnswer.isNotBlank()) onSubmit(textAnswer) }
-                    ),
-                    singleLine = true
-                )
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = { onSubmit(textAnswer) },
-                    enabled = textAnswer.isNotBlank() && phase != TaskPhase.Submitting,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppAccent,
-                        contentColor = AppAccentFg
-                    )
-                ) {
-                    if (phase == TaskPhase.Submitting) {
-                        CircularProgressIndicator(
-                            color = AppAccentFg,
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text("Ответить", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                TaskPhase.Wrong -> {
+                    ResultBanner("✗ Неверно: $selectedAnswer", AppDanger, AppDanger.copy(alpha = 0.15f))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = onStartDialogue,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
+                        ) {
+                            Text("Помоги разобрать", fontWeight = FontWeight.Bold, color = AppAccentFg, fontSize = 13.sp)
+                        }
+                        Button(
+                            onClick = onGiveUp,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.surface)
+                        ) {
+                            Text("Объяснить сразу", fontWeight = FontWeight.Bold, color = colors.foreground, fontSize = 13.sp)
+                        }
                     }
                 }
+                TaskPhase.GiveUp -> {
+                    correctAnswer?.let { ans ->
+                        ResultBanner("Правильный ответ: $ans", AppAccent, AppAccent.copy(alpha = 0.15f))
+                    }
+                    onNext?.let {
+                        Button(
+                            onClick = it,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.surface)
+                        ) {
+                            Text("Следующее", fontWeight = FontWeight.Bold, color = colors.foreground)
+                        }
+                    }
+                }
+                TaskPhase.Question, TaskPhase.Submitting -> {
+                    Button(
+                        onClick = {
+                            if (isMultipleChoice) localSelected?.let { onSubmit(it) }
+                            else onSubmit(textAnswer)
+                        },
+                        enabled = (if (isMultipleChoice) localSelected != null else textAnswer.isNotBlank())
+                            && phase != TaskPhase.Submitting,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppAccent,
+                            contentColor = AppAccentFg
+                        )
+                    ) {
+                        if (phase == TaskPhase.Submitting) {
+                            CircularProgressIndicator(
+                                color = AppAccentFg,
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Ответить", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                    }
+                }
+                else -> {}
             }
         }
     }

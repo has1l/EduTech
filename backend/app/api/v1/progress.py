@@ -1,15 +1,17 @@
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, status
 from openai import AsyncOpenAI
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import Date, cast, func, select
 
 from app.config import settings
 from app.core.deps import CurrentUser, DbSession, RedisClient
+from app.models.attempt import Attempt
 from app.models.progress import UserTopicProgress
+from app.models.streak import Streak
 from app.models.topic import Topic
 from app.services.bank_ege_client import OGE_TASK_SECTIONS, TASK_SECTIONS
 
@@ -66,6 +68,8 @@ async def _gpt_predict(
     stats: dict[int, dict],
     target: int,
     days_left: int | None,
+    current_streak: int,
+    sessions_last_7: int,
 ) -> tuple[int, int, str]:
     lines: list[str] = []
     task_range = range(6, 20) if is_oge else range(1, 13)
@@ -80,9 +84,10 @@ async def _gpt_predict(
         )
 
     days_str = f"{days_left} дней" if days_left is not None else "неизвестно"
+    pace_str = f"серия {current_streak} дней подряд, занимался {sessions_last_7} из последних 7 дней"
 
     if is_oge:
-        prompt = f"""Ты эксперт по ОГЭ по математике.
+        prompt = f"""Ты эксперт по ОГЭ по математике и опытный репетитор.
 
 Шкала ОГЭ: оценка 3 = 8-14 первичных, 4 = 15-21, 5 = 22-31 (из 31 возможного).
 Ученик занимается заданиями 6-19 (14 из 19 заданий Части 1) в нашей системе.
@@ -91,12 +96,16 @@ async def _gpt_predict(
 {chr(10).join(lines)}
 
 Цель: оценка {target} | Дней до экзамена: {days_str}
+Темп занятий: {pace_str}
 
-Рассчитай прогноз итоговой оценки (3/4/5), учитывая что задания 1-5 не охвачены системой.
+Рассчитай прогноз итоговой оценки (3/4/5), учитывая:
+- задания 1-5 не охвачены системой (они дадут дополнительные баллы)
+- реальный темп занятий ученика
+
 Верни ТОЛЬКО JSON:
-{{"by_plan": <3-5>, "if_nothing": <3-5>, "explanation": "<2-3 предложения, на 'ты'>"}}"""
+{{"by_plan": <3-5>, "if_nothing": <3-5>, "explanation": "<2 предложения: конкретно что тянет вниз и что даст быстрый рост, на 'ты'>"}}"""
     else:
-        prompt = f"""Ты эксперт по ЕГЭ по профильной математике.
+        prompt = f"""Ты эксперт по ЕГЭ по профильной математике и опытный репетитор.
 
 Часть 1 (задания 1-12): максимум 12 первичных = 70 тестовых баллов.
 Шкала: 1→6, 2→11, 3→17, 4→22, 5→27, 6→34, 7→39, 8→46, 9→52, 10→58, 11→64, 12→70.
@@ -106,15 +115,16 @@ async def _gpt_predict(
 {chr(10).join(lines)}
 
 Цель: {target} баллов | Дней до экзамена: {days_str}
+Темп занятий: {pace_str}
 
 Рассчитай прогноз тестовых баллов за Часть 1 (максимум 70).
-«По плану» — если продолжит заниматься.
+«По плану» — если сохранит текущий темп занятий.
 «Без занятий» — текущий уровень с учётом забывания.
 
 Верни ТОЛЬКО JSON:
-{{"by_plan": <0-70>, "if_nothing": <0-70>, "explanation": "<2-3 предложения: честно и по делу, на 'ты'>"}}
+{{"by_plan": <0-70>, "if_nothing": <0-70>, "explanation": "<2 предложения: конкретно что тянет вниз и что даст быстрый рост, на 'ты'>"}}
 
-Правила: by_plan ≥ if_nothing, оба ≤ 70, реалистичный рост за {days_str}."""
+Правила: by_plan ≥ if_nothing, оба ≤ 70, учитывай реальный темп ({sessions_last_7} дней/неделю), рост реалистичен за {days_str}."""
 
     client = AsyncOpenAI(api_key=settings.openai_api_key)
     resp = await client.chat.completions.create(
@@ -168,9 +178,22 @@ async def get_score_prediction(user: CurrentUser, db: DbSession, redis: RedisCli
 
     mastery = {tn: sum(v) / len(v) for tn, v in task_sums.items()}
 
+    streak_row = await db.get(Streak, user.id)
+    current_streak = streak_row.current_streak if streak_row else 0
+
+    seven_days_ago = date.today() - timedelta(days=7)
+    sessions_result = await db.execute(
+        select(func.count(func.distinct(cast(Attempt.created_at, Date))))
+        .where(Attempt.user_id == user.id)
+        .where(Attempt.created_at >= seven_days_ago)
+    )
+    sessions_last_7 = sessions_result.scalar() or 0
+
     try:
         if USE_GPT_PREDICTION:
-            by_plan, if_nothing, explanation = await _gpt_predict(is_oge, mastery, task_stats, target, days_left)
+            by_plan, if_nothing, explanation = await _gpt_predict(
+                is_oge, mastery, task_stats, target, days_left, current_streak, sessions_last_7
+            )
         elif is_oge:
             by_plan, if_nothing = _formula_predict_oge(mastery, days_left)
             explanation = ""

@@ -214,7 +214,15 @@ function ScoreCard() {
           </div>
 
           {pred?.explanation && (
-            <p className="mt-3 text-xs text-muted leading-relaxed">{pred.explanation}</p>
+            <div className="mt-4 flex gap-3 rounded-2xl bg-fg/5 p-3">
+              <video
+                src="/mascot/thinking.mp4"
+                autoPlay loop muted playsInline
+                className="h-9 w-9 shrink-0 rounded-xl object-cover"
+                style={{ mixBlendMode: "multiply" }}
+              />
+              <p className="text-sm text-fg/80 leading-relaxed self-center">{pred.explanation}</p>
+            </div>
           )}
 
           {isOge ? (

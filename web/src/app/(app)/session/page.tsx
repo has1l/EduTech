@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import type { PathNode, SubtopicSession, TaskSection } from "@/lib/types";
 
-const ZIGZAG_OFFSETS = [56, 16, -56, -16, 56, 16, -56, -16];
+const ZIGZAG_OFFSETS = [32, 10, -32, -10, 32, 10, -32, -10];
 
 type NodeState = "completed" | "current" | "locked";
 type Tab = "path" | "plan";
@@ -142,14 +142,13 @@ function PathNodeItem({
 }
 
 function Connector({ fromOffset, toOffset }: { fromOffset: number; toOffset: number }) {
-  const cx = 160;
+  const cx = 120;
   const height = 64;
   return (
     <svg
-      width="320"
+      width="240"
       height={height}
-      className="overflow-visible"
-      style={{ marginLeft: "-50%", transform: "translateX(50%)" }}
+      className="overflow-visible max-w-full"
     >
       <line
         x1={cx + fromOffset}
@@ -358,7 +357,7 @@ export default function SessionPage() {
   return (
     <>
       <AppNav />
-      <main className="mx-auto max-w-md px-6 py-10">
+      <main className="mx-auto max-w-md px-4 md:px-6 pt-6 pb-24 md:pb-10">
         {/* Header */}
         <div className="flex items-center gap-3 mb-2">
           <Link href="/today" className="text-muted transition hover:text-fg">

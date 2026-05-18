@@ -189,7 +189,7 @@ export default function ProfilePage() {
   return (
     <>
       <AppNav />
-      <main className="mx-auto w-full max-w-xl px-6 py-8">
+      <main className="mx-auto w-full max-w-xl px-4 md:px-6 pt-6 pb-24 md:py-8">
       {/* Header */}
       <div className="mb-8 flex items-center gap-4">
         <Avatar name={me.name} email={me.email} />

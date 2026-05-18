@@ -57,7 +57,7 @@ export default function TodayPage() {
   return (
     <>
       <AppNav />
-      <main className="mx-auto max-w-3xl px-6 py-10 space-y-8">
+      <main className="mx-auto max-w-3xl px-4 md:px-6 pt-8 pb-24 md:py-10 space-y-8">
         {/* Greeting */}
         <div>
           <p className="text-sm text-muted">Привет, {firstName}!</p>

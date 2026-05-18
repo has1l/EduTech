@@ -189,7 +189,7 @@ export default function DiagnosticPage() {
   return (
     <>
       <AppNav />
-      <main className="mx-auto max-w-md px-4 py-6 flex flex-col gap-6">
+      <main className="mx-auto max-w-md px-4 pt-6 pb-24 md:py-6 flex flex-col gap-6">
         {/* Header */}
         <div>
           <p className="text-xs text-muted mb-1">Диагностика · {examLabel}</p>

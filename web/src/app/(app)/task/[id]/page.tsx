@@ -508,7 +508,7 @@ export default function TaskPage() {
     return (
       <>
         <AppNav />
-        <main className="mx-auto max-w-2xl px-4 py-6 space-y-4">
+        <main className="mx-auto max-w-2xl px-4 pt-6 pb-24 md:py-6 space-y-4">
           <div className="h-8 w-48 rounded-xl bg-fg/5 animate-pulse" />
           <div className="h-32 rounded-2xl border border-border animate-pulse bg-fg/5" />
         </main>
@@ -555,7 +555,7 @@ export default function TaskPage() {
         </div>
       )}
 
-      <main className="mx-auto max-w-2xl px-4 py-6 space-y-5">
+      <main className="mx-auto max-w-2xl px-4 pt-6 pb-24 md:py-6 space-y-5">
 
         {/* Task dots navigation */}
         {inSession && (

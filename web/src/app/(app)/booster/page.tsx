@@ -434,7 +434,7 @@ export default function BoosterPage() {
   return (
     <>
       <AppNav />
-      <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+      <div className="flex flex-col h-[calc(100vh-3.5rem-4rem)] md:h-[calc(100vh-3.5rem)]">
 
         <div className="px-6 pt-8 pb-4 shrink-0">
           <h1 className="text-xl font-bold">Бустер</h1>
@@ -467,7 +467,8 @@ export default function BoosterPage() {
 
         {!isLoading && items.length > 0 && (
           <div className="flex flex-1 overflow-hidden">
-            <main className="flex-1 overflow-y-auto">
+            {/* Solver — hidden on mobile (items tap-navigate to /task/[id]) */}
+            <main className="hidden md:flex flex-1 overflow-y-auto flex-col">
               {selectedItem ? (
                 <InlineTaskSolver key={selectedItem.task_id} item={selectedItem} onSolved={handleSolved} onNext={handleNext} />
               ) : (
@@ -477,7 +478,7 @@ export default function BoosterPage() {
               )}
             </main>
 
-            <aside className="w-56 shrink-0 overflow-y-auto border-l border-border bg-bg">
+            <aside className="w-full md:w-56 md:shrink-0 overflow-y-auto border-t md:border-t-0 md:border-l border-border bg-bg">
               {grouped.map((taskGroup) => {
                 const colors = SECTION_COLORS[taskGroup.difficulty] ?? SECTION_COLORS[2];
                 return (

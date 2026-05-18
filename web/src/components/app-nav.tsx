@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Flame } from "lucide-react";
+import { BarChart2, BookOpen, Flame, User, Zap } from "lucide-react";
 import { useStreak, useBoosterCount } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/today", label: "Курсы" },
-  { href: "/progress", label: "Прогресс" },
-  { href: "/booster", label: "Бустер" },
-  { href: "/profile", label: "Профиль" },
+  { href: "/today",    label: "Курсы",    Icon: BookOpen },
+  { href: "/progress", label: "Прогресс", Icon: BarChart2 },
+  { href: "/booster",  label: "Бустер",   Icon: Zap },
+  { href: "/profile",  label: "Профиль",  Icon: User },
 ] as const;
 
 const WEEK_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -48,12 +48,92 @@ export function AppNav() {
   });
 
   return (
-    <header className="sticky top-0 z-10 border-b border-border bg-bg/80 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-6">
-        <Link href="/today" className="text-lg font-bold tracking-tight">
-          EduTech
-        </Link>
-        <nav className="flex flex-1 items-center gap-1">
+    <>
+      {/* ── Top bar ────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-10 border-b border-border bg-bg/80 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-4 md:px-6">
+          <Link href="/today" className="text-lg font-bold tracking-tight shrink-0">
+            EduTech
+          </Link>
+
+          {/* Desktop tabs */}
+          <nav className="hidden md:flex flex-1 items-center gap-1">
+            {TABS.map((t) => {
+              const active =
+                pathname.startsWith(t.href) ||
+                (t.href === "/today" &&
+                  (pathname.startsWith("/session") || pathname.startsWith("/task")));
+              const isBoosterTab = t.href === "/booster";
+              return (
+                <Link
+                  key={t.href}
+                  href={t.href}
+                  className={cn(
+                    "relative rounded-full px-3 py-1.5 text-sm font-medium transition",
+                    active ? "bg-fg text-bg" : "text-muted hover:bg-fg/5",
+                  )}
+                >
+                  {t.label}
+                  {isBoosterTab && boosterCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-fg">
+                      {boosterCount > 9 ? "9+" : boosterCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Desktop streak widget */}
+          <div className="hidden md:flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 text-sm font-bold">
+              <Flame className="h-4 w-4 text-accent" />
+              <span>{current}</span>
+            </div>
+            <div className="flex gap-1.5">
+              {weekDays.map((day, i) => {
+                const key = day.toISOString().slice(0, 10);
+                const isActive = activeDates.has(key);
+                const isToday = key === todayStr;
+                const isFuture = day > today;
+                return (
+                  <div key={i} className="flex flex-col items-center gap-0.5">
+                    <div
+                      className={cn(
+                        "h-3 w-3 rounded-full transition-all duration-300",
+                        isActive && "bg-accent shadow-sm shadow-accent/50",
+                        !isActive && !isFuture && "bg-border",
+                        isFuture && "bg-border/30",
+                        isToday && !isActive && "ring-2 ring-accent ring-offset-1",
+                        isToday && isActive && "ring-2 ring-fg/20 ring-offset-1",
+                      )}
+                    />
+                    <span className={cn(
+                      "text-[9px] font-medium leading-none",
+                      isToday ? "text-accent font-bold" : "text-muted/50",
+                    )}>
+                      {WEEK_LABELS[i]}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Mobile: compact streak (flame + count) */}
+          <div className="md:hidden ml-auto flex items-center gap-1.5 text-sm font-bold">
+            <Flame className="h-4 w-4 text-accent" />
+            <span>{current}</span>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Mobile bottom tab bar ──────────────────────────────────── */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-bg/95 backdrop-blur md:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        <div className="flex h-16 items-stretch">
           {TABS.map((t) => {
             const active =
               pathname.startsWith(t.href) ||
@@ -65,57 +145,22 @@ export function AppNav() {
                 key={t.href}
                 href={t.href}
                 className={cn(
-                  "relative rounded-full px-3 py-1.5 text-sm font-medium transition",
-                  active ? "bg-fg text-bg" : "text-muted hover:bg-fg/5",
+                  "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 transition",
+                  active ? "text-fg" : "text-muted",
                 )}
               >
-                {t.label}
+                <t.Icon className={cn("h-5 w-5", active && "stroke-[2.5]")} />
+                <span className="text-[10px] font-medium">{t.label}</span>
                 {isBoosterTab && boosterCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-fg">
+                  <span className="absolute right-2 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-fg">
                     {boosterCount > 9 ? "9+" : boosterCount}
                   </span>
                 )}
               </Link>
             );
           })}
-        </nav>
-
-        {/* Streak — always visible inline weekly strip */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1 text-sm font-bold">
-            <Flame className="h-4 w-4 text-accent" />
-            <span>{current}</span>
-          </div>
-          <div className="flex gap-1.5">
-            {weekDays.map((day, i) => {
-              const key = day.toISOString().slice(0, 10);
-              const isActive = activeDates.has(key);
-              const isToday = key === todayStr;
-              const isFuture = day > today;
-              return (
-                <div key={i} className="flex flex-col items-center gap-0.5">
-                  <div
-                    className={cn(
-                      "h-3 w-3 rounded-full transition-all duration-300",
-                      isActive && "bg-accent shadow-sm shadow-accent/50",
-                      !isActive && !isFuture && "bg-border",
-                      isFuture && "bg-border/30",
-                      isToday && !isActive && "ring-2 ring-accent ring-offset-1",
-                      isToday && isActive && "ring-2 ring-fg/20 ring-offset-1",
-                    )}
-                  />
-                  <span className={cn(
-                    "text-[9px] font-medium leading-none",
-                    isToday ? "text-accent font-bold" : "text-muted/50",
-                  )}>
-                    {WEEK_LABELS[i]}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
         </div>
-      </div>
-    </header>
+      </nav>
+    </>
   );
 }

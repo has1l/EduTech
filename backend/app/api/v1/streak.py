@@ -3,7 +3,7 @@ from datetime import date
 from fastapi import APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser, DbSession, RedisClient
 from app.models.streak import Streak
 from pydantic import BaseModel
 
@@ -51,7 +51,7 @@ async def get_streak(user: CurrentUser, db: DbSession) -> StreakOut:
 
 
 @router.post("/record", response_model=StreakOut)
-async def record_streak(user: CurrentUser, db: DbSession) -> StreakOut:
+async def record_streak(user: CurrentUser, db: DbSession, redis: RedisClient) -> StreakOut:
     """Call after any correct answer — increments streak at most once per day."""
     today = date.today()
     streak = await db.get(Streak, user.id)
@@ -84,6 +84,8 @@ async def record_streak(user: CurrentUser, db: DbSession) -> StreakOut:
             streak.longest_streak = streak.current_streak
 
         await db.commit()
+
+    await redis.delete(f"score_pred:{user.id}")
 
     return StreakOut(
         current_streak=streak.current_streak,

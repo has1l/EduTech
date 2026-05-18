@@ -216,12 +216,6 @@ async def get_score_prediction(user: CurrentUser, db: DbSession, redis: RedisCli
     return result
 
 
-@router.post("/score-prediction/refresh")
-async def refresh_score_prediction(user: CurrentUser, redis: RedisClient) -> dict:
-    await redis.delete(f"score_pred:{user.id}")
-    return {"ok": True}
-
-
 @router.get("/map")
 async def get_knowledge_map(user: CurrentUser) -> dict:
     raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="TODO")

@@ -73,9 +73,9 @@ fun ProfileScreen(vm: ProfileViewModel = viewModel()) {
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            ProfileStat("🔥", "Серия", AppState.currentUser.value?.let { "—" } ?: "—")
-            ProfileStat("🏆", "Рекорд", "—")
-            ProfileStat("❄️", "Заморозки", "—")
+            ProfileStat("🔥", "Серия", editState.currentStreak.toString())
+            ProfileStat("🏆", "Рекорд", editState.longestStreak.toString())
+            ProfileStat("❄️", "Заморозки", editState.freezesAvailable.toString())
         }
 
         HorizontalDivider(color = colors.border)

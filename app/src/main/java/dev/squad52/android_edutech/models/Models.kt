@@ -6,10 +6,17 @@ data class User(
     val name: String?,
     val grade: Int?,
     val currentScore: Int?,
+    val ogeCurrentScore: Int?,
     val targetScore: Int?,
     val examDate: String?,
-    val diagnosticCompletedAt: String?
-)
+    val diagnosticCompletedAt: String?,
+    val ogeDiagnosticCompletedAt: String?
+) {
+    val isOge: Boolean get() = (grade ?: 11) <= 9
+
+    val activeDiagnosticCompletedAt: String?
+        get() = if (isOge) ogeDiagnosticCompletedAt else diagnosticCompletedAt
+}
 
 data class TokenPair(
     val accessToken: String,
@@ -194,6 +201,7 @@ data class RegisterRequest(val email: String, val password: String)
 data class UpdateProfileRequest(
     val grade: Int?,
     val currentScore: Int?,
+    val ogeCurrentScore: Int?,
     val targetScore: Int?,
     val examDate: String?,
     val name: String?

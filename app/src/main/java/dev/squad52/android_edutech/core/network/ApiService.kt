@@ -85,7 +85,7 @@ interface ApiService {
     suspend fun getPlan(): Response<PlanOut>
 
     @POST("plan/generate")
-    suspend fun generatePlan(): Response<StudyPlan>
+    suspend fun generatePlan(): Response<PlanOut>
 
     // Booster
     @GET("booster")

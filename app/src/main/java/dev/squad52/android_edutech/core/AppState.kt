@@ -26,6 +26,13 @@ object AppState {
     private val _showLoginFlow = MutableStateFlow(false)
     val showLoginFlow: StateFlow<Boolean> = _showLoginFlow
 
+    private val _pendingDiagnostic = MutableStateFlow(false)
+    val pendingDiagnostic: StateFlow<Boolean> = _pendingDiagnostic
+
+    fun setPendingDiagnostic(value: Boolean) {
+        _pendingDiagnostic.value = value
+    }
+
     fun bootstrap() {
         scope.launch {
             if (!TokenStore.hasTokens()) {

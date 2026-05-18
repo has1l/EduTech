@@ -15,7 +15,10 @@ data class ProfileEditState(
     val name: String = "",
     val isSaving: Boolean = false,
     val saveSuccess: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val currentStreak: Int = 0,
+    val longestStreak: Int = 0,
+    val freezesAvailable: Int = 0
 )
 
 class ProfileViewModel : ViewModel() {
@@ -30,6 +33,20 @@ class ProfileViewModel : ViewModel() {
                 targetScore = user.targetScore ?: 25,
                 name = user.name ?: ""
             )
+        }
+        loadStreak()
+    }
+
+    private fun loadStreak() {
+        viewModelScope.launch {
+            val result = ApiClient.safeCall { getStreak() }
+            result.onSuccess { streak ->
+                _editState.value = _editState.value.copy(
+                    currentStreak = streak.currentStreak,
+                    longestStreak = streak.longestStreak,
+                    freezesAvailable = streak.freezesAvailable
+                )
+            }
         }
     }
 
@@ -55,6 +72,7 @@ class ProfileViewModel : ViewModel() {
                         grade = s.grade,
                         targetScore = s.targetScore,
                         currentScore = null,
+                        ogeCurrentScore = null,
                         examDate = null,
                         name = s.name.ifBlank { null }
                     )

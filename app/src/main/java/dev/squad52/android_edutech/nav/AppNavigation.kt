@@ -97,6 +97,13 @@ fun AppNavigation() {
             )
         }
         composable(Route.Main.route) {
+            val pendingDiagnostic by AppState.pendingDiagnostic.collectAsState()
+            LaunchedEffect(pendingDiagnostic) {
+                if (pendingDiagnostic) {
+                    AppState.setPendingDiagnostic(false)
+                    navController.navigate(Route.Diagnostic.route)
+                }
+            }
             MainScreen(
                 onNavigateToTaskSession = { taskIds, sessionId, topicId ->
                     navController.navigate(Route.TaskSession.build(taskIds, sessionId, topicId))

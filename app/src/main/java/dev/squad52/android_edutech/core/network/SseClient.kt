@@ -1,8 +1,10 @@
 package dev.squad52.android_edutech.core.network
 
 import dev.squad52.android_edutech.core.auth.TokenStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -82,5 +84,5 @@ object SseClient {
         } finally {
             response.close()
         }
-    }
+    }.flowOn(Dispatchers.IO)
 }

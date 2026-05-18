@@ -26,6 +26,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.squad52.android_edutech.models.DiagnosticSectionResult
 import dev.squad52.android_edutech.models.EduTask
 import dev.squad52.android_edutech.models.TaskOption
+import dev.squad52.android_edutech.ui.components.MathText
 import dev.squad52.android_edutech.ui.components.PrimaryButton
 import dev.squad52.android_edutech.ui.components.TaskImage
 import dev.squad52.android_edutech.ui.theme.*
@@ -241,7 +242,7 @@ private fun DiagnosticTaskPage(
             TaskImage(url = task.questionImageUrl)
         }
         if (task.questionText.isNotBlank()) {
-            Text(task.questionText, fontSize = 16.sp, color = colors.foreground, lineHeight = 24.sp)
+            MathText(text = task.questionText, fontSize = 16)
         }
 
         if (isMultiple) {

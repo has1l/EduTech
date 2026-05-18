@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.squad52.android_edutech.models.EduTask
 import dev.squad52.android_edutech.models.TaskOption
+import dev.squad52.android_edutech.ui.components.MathText
 import dev.squad52.android_edutech.ui.components.TaskImage
 import dev.squad52.android_edutech.ui.theme.*
 
@@ -144,12 +145,7 @@ private fun ConditionTab(
 
         // Question text
         if (task.questionText.isNotBlank()) {
-            Text(
-                text = task.questionText,
-                fontSize = 16.sp,
-                color = colors.foreground,
-                lineHeight = 24.sp
-            )
+            MathText(text = task.questionText, fontSize = 16)
         }
 
         // Phase banners

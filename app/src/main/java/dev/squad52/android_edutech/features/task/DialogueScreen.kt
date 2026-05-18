@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.squad52.android_edutech.ui.components.MathText
 import dev.squad52.android_edutech.ui.theme.AppAccent
 import dev.squad52.android_edutech.ui.theme.AppAccentFg
 import dev.squad52.android_edutech.ui.theme.LocalAppColors
@@ -228,9 +229,11 @@ private fun ChatBubble(msg: ChatMessage) {
                             )
                         }
                     }
+                } else if (!isUser && !msg.isStreaming) {
+                    MathText(text = msg.content, fontSize = 15, color = colors.foreground)
                 } else {
                     Text(
-                        text = if (msg.isStreaming && msg.content.isEmpty()) "..." else msg.content,
+                        text = msg.content,
                         color = if (isUser) AppAccentFg else colors.foreground,
                         fontSize = 15.sp
                     )

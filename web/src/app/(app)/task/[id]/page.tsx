@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, ChevronLeft, Eraser, Pencil, Plus, X } from "lucide-react";
+import { BookOpen, ChevronLeft, Eraser, Loader2, Pencil, Plus, X } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { MathText } from "@/components/math-text";
 import { Button } from "@/components/ui/button";
@@ -145,6 +145,8 @@ export default function TaskPage() {
   );
   const [streaming, setStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [givingUp, setGivingUp] = useState(false);
+  const [sendingReply, setSendingReply] = useState(false);
   const [reply, setReply] = useState("");
   const [addingMore, setAddingMore] = useState(false);
   const [streakFlash, setStreakFlash] = useState<number | null>(null);
@@ -478,21 +480,28 @@ export default function TaskPage() {
   }
 
   async function sendReply() {
-    if (!reply.trim() || !dialogueId || streaming) return;
+    if (!reply.trim() || !dialogueId || streaming || sendingReply) return;
     const text = reply.trim();
     setReply("");
+    setSendingReply(true);
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     await api.post(`/dialogue/${dialogueId}/reply`, { text });
+    setSendingReply(false);
     await startStream(dialogueId);
   }
 
   async function giveUp() {
-    if (!dialogueId) return;
-    const { data } = await api.post<{ correct_answer: string }>(`/dialogue/${dialogueId}/give-up`);
-    setGiveUpResult(data);
-    setPhase("giveup");
-    setAiPositions((prev) => new Set([...Array.from(prev), currentPos]));
-    await startStream(dialogueId);
+    if (!dialogueId || givingUp) return;
+    setGivingUp(true);
+    try {
+      const { data } = await api.post<{ correct_answer: string }>(`/dialogue/${dialogueId}/give-up`);
+      setGiveUpResult(data);
+      setPhase("giveup");
+      setAiPositions((prev) => new Set([...Array.from(prev), currentPos]));
+      await startStream(dialogueId);
+    } finally {
+      setGivingUp(false);
+    }
   }
 
   if (isLoading || !task) {
@@ -732,9 +741,10 @@ export default function TaskPage() {
                 size="lg"
                 onClick={submitAnswer}
                 disabled={!answer.trim() || phase === "submitting"}
-                className="shrink-0"
+                className="shrink-0 gap-2"
               >
-                {phase === "submitting" ? "..." : "Проверить"}
+                {phase === "submitting" && <Loader2 className="h-4 w-4 animate-spin" />}
+                {phase === "submitting" ? "Проверяем..." : "Проверить"}
               </Button>
             </div>
           </div>
@@ -890,20 +900,25 @@ export default function TaskPage() {
                       onChange={(e) => setReply(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendReply()}
                       placeholder="Напиши ответ..."
-                      className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                      disabled={sendingReply}
+                      className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
                     />
-                    <Button onClick={sendReply} disabled={!reply.trim()}>→</Button>
+                    <Button onClick={sendReply} disabled={!reply.trim() || sendingReply} className="gap-1.5">
+                      {sendingReply ? <Loader2 className="h-4 w-4 animate-spin" /> : "→"}
+                    </Button>
                   </div>
                 )}
 
-                {!streaming && (
+                {!streaming && !sendingReply && (
                   <div className="flex flex-wrap gap-2">
                     {phase === "dialogue" && (
                       <button
                         onClick={giveUp}
-                        className="rounded-full border border-border px-4 py-2 text-sm text-muted hover:bg-fg/5 transition"
+                        disabled={givingUp}
+                        className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted hover:bg-fg/5 transition disabled:opacity-50"
                       >
-                        Объяснить сразу
+                        {givingUp && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        {givingUp ? "Загружаем..." : "Объяснить сразу"}
                       </button>
                     )}
                     {canGoNext && (

@@ -13,7 +13,7 @@ struct StudyPlanView: View {
             VStack(alignment: .leading, spacing: 16) {
                 if loading {
                     ProgressView().frame(maxWidth: .infinity).padding(.top, 60)
-                } else if appState.currentUser?.diagnosticCompletedAt == nil {
+                } else if appState.currentUser?.activeDiagnosticCompletedAt == nil {
                     diagnosticGate
                 } else if let plan = planOut?.plan {
                     planContent(plan)
@@ -119,8 +119,8 @@ struct StudyPlanView: View {
         generating = true
         defer { generating = false }
         do {
-            let plan: StudyPlan = try await APIClient.shared.request(.planGenerate)
-            self.planOut = PlanOut(plan: plan, needsGeneration: false)
+            let result: PlanOut = try await APIClient.shared.request(.planGenerate)
+            self.planOut = result
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription
         }

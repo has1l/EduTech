@@ -350,7 +350,7 @@ private struct _EmbeddedPlanContent: View {
             VStack(alignment: .leading, spacing: 40) {
                 if loading {
                     ProgressView().frame(maxWidth: .infinity).padding(.top, 60)
-                } else if appState.currentUser?.diagnosticCompletedAt == nil {
+                } else if appState.currentUser?.activeDiagnosticCompletedAt == nil {
                     diagnosticGate
                 } else if let plan = planOut?.plan {
                     planPath(plan)
@@ -511,8 +511,8 @@ private struct _EmbeddedPlanContent: View {
         generating = true
         defer { generating = false }
         do {
-            let plan: StudyPlan = try await APIClient.shared.request(.planGenerate)
-            planOut = PlanOut(plan: plan, needsGeneration: false)
+            let result: PlanOut = try await APIClient.shared.request(.planGenerate)
+            planOut = result
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription
         }

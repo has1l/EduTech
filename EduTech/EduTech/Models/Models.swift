@@ -8,9 +8,17 @@ struct User: Decodable, Identifiable, Hashable {
     let name: String?
     let grade: Int?
     let currentScore: Int?
+    let ogeCurrentScore: Int?
     let targetScore: Int?
     let examDate: String?
     let diagnosticCompletedAt: String?
+    let ogeDiagnosticCompletedAt: String?
+
+    var isOge: Bool { (grade ?? 11) <= 9 }
+
+    var activeDiagnosticCompletedAt: String? {
+        isOge ? ogeDiagnosticCompletedAt : diagnosticCompletedAt
+    }
 }
 
 struct TokenPair: Codable {

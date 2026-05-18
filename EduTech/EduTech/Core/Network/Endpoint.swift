@@ -41,15 +41,16 @@ extension Endpoint {
 
     // Users
     static let me = Endpoint(.GET, "/users/me")
-    static func updateMe(grade: Int?, currentScore: Int?, targetScore: Int?, examDate: String?, name: String?) -> Endpoint {
+    static func updateMe(grade: Int?, currentScore: Int?, ogeCurrentScore: Int? = nil, targetScore: Int?, examDate: String?, name: String?) -> Endpoint {
         struct Body: Encodable {
             let grade: Int?
             let current_score: Int?
+            let oge_current_score: Int?
             let target_score: Int?
             let exam_date: String?
             let name: String?
         }
-        return Endpoint(.PATCH, "/users/me", body: Body(grade: grade, current_score: currentScore, target_score: targetScore, exam_date: examDate, name: name))
+        return Endpoint(.PATCH, "/users/me", body: Body(grade: grade, current_score: currentScore, oge_current_score: ogeCurrentScore, target_score: targetScore, exam_date: examDate, name: name))
     }
 
     // Sessions

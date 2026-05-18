@@ -300,12 +300,20 @@ struct DiagnosticView: View {
 
         let pct = result.total > 0 ? Double(result.correct) / Double(result.total) : 0
         let grade = appState.currentUser?.grade ?? 11
-        let currentScore: Int = grade == 9
+        let isOge = grade <= 9
+        let score: Int = isOge
             ? (result.correct >= 9 ? 5 : result.correct >= 4 ? 4 : 3)
             : (pct >= 0.75 ? 85 : pct >= 0.55 ? 70 : pct >= 0.30 ? 50 : 30)
         do {
             let updated: User = try await APIClient.shared.request(
-                Endpoint.updateMe(grade: nil, currentScore: currentScore, targetScore: nil, examDate: nil, name: nil)
+                Endpoint.updateMe(
+                    grade: nil,
+                    currentScore: isOge ? nil : score,
+                    ogeCurrentScore: isOge ? score : nil,
+                    targetScore: nil,
+                    examDate: nil,
+                    name: nil
+                )
             )
             appState.currentUser = updated
         } catch {}

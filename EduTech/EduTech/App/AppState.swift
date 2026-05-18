@@ -22,7 +22,7 @@ final class AppState {
         return u.grade == nil || u.targetScore == nil
     }
     var diagnosticDone: Bool {
-        currentUser?.diagnosticCompletedAt != nil
+        currentUser?.activeDiagnosticCompletedAt != nil
     }
 
     /// On launch — restore session from keychain. If no token, show login.

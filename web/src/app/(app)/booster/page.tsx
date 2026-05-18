@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, SkipForward, Sparkles, Zap } from "lucide-react";
+import { BookOpen, Loader2, SkipForward, Sparkles, Zap } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
 import { MathText } from "@/components/math-text";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,8 @@ function InlineTaskSolver({
   const [streaming, setStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [reply, setReply] = useState("");
+  const [givingUp, setGivingUp] = useState(false);
+  const [sendingReply, setSendingReply] = useState(false);
   const streamBuffer = useRef("");
 
   async function startStream(dId: string) {
@@ -124,21 +126,28 @@ function InlineTaskSolver({
   }
 
   async function sendReply() {
-    if (!reply.trim() || !dialogueId || streaming) return;
+    if (!reply.trim() || !dialogueId || streaming || sendingReply) return;
     const text = reply.trim();
     setReply("");
+    setSendingReply(true);
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     await api.post(`/dialogue/${dialogueId}/reply`, { text });
+    setSendingReply(false);
     await startStream(dialogueId);
   }
 
   async function giveUp() {
-    if (!dialogueId) return;
-    const { data } = await api.post<{ correct_answer: string }>(`/dialogue/${dialogueId}/give-up`);
-    setGiveUpResult(data);
-    setPhase("giveup");
-    updateBoosterReason.mutate({ taskId: item.task_id, reason: "ai" });
-    await startStream(dialogueId);
+    if (!dialogueId || givingUp) return;
+    setGivingUp(true);
+    try {
+      const { data } = await api.post<{ correct_answer: string }>(`/dialogue/${dialogueId}/give-up`);
+      setGiveUpResult(data);
+      setPhase("giveup");
+      updateBoosterReason.mutate({ taskId: item.task_id, reason: "ai" });
+      await startStream(dialogueId);
+    } finally {
+      setGivingUp(false);
+    }
   }
 
   const assistantTurns = messages.filter((m) => m.role === "assistant").length;
@@ -206,8 +215,9 @@ function InlineTaskSolver({
               disabled={phase === "submitting"}
               className="flex-1 rounded-2xl border border-border bg-transparent px-4 py-3 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
             />
-            <Button size="lg" onClick={submitAnswer} disabled={!answer.trim() || phase === "submitting"} className="shrink-0">
-              {phase === "submitting" ? "..." : "Проверить"}
+            <Button size="lg" onClick={submitAnswer} disabled={!answer.trim() || phase === "submitting"} className="shrink-0 gap-2">
+              {phase === "submitting" && <Loader2 className="h-4 w-4 animate-spin" />}
+              {phase === "submitting" ? "Проверяем..." : "Проверить"}
             </Button>
           </div>
         </div>
@@ -215,9 +225,12 @@ function InlineTaskSolver({
 
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/20 shrink-0">
-            <Sparkles className="h-4 w-4 text-accent" />
-          </div>
+          <video
+            src="/mascot/idle.mp4"
+            autoPlay loop muted playsInline
+            className="h-8 w-8 shrink-0 rounded-xl object-cover"
+            style={{ mixBlendMode: "multiply" }}
+          />
           <span className="text-sm font-semibold">AI-репетитор</span>
         </div>
 
@@ -229,14 +242,22 @@ function InlineTaskSolver({
           )}
 
           {phase === "wrong" && (
-            <>
-              <p className="text-sm text-muted leading-relaxed">
-                Можем разобрать вместе — я задам наводящие вопросы.
-              </p>
-              <button onClick={startDialogue} className="rounded-full bg-fg text-bg px-4 py-2 text-sm font-semibold hover:opacity-90 transition">
-                Помоги разобрать
-              </button>
-            </>
+            <div className="flex items-start gap-3">
+              <video
+                src="/mascot/investigating.mp4"
+                autoPlay loop muted playsInline
+                className="h-12 w-12 shrink-0 rounded-full object-cover"
+                style={{ mixBlendMode: "multiply" }}
+              />
+              <div className="space-y-2 flex-1">
+                <p className="text-sm text-muted leading-relaxed">
+                  Можем разобрать вместе — я задам наводящие вопросы, чтобы ты сам нашёл ошибку.
+                </p>
+                <button onClick={startDialogue} className="rounded-full bg-fg text-bg px-4 py-2 text-sm font-semibold hover:opacity-90 transition">
+                  Помоги разобрать
+                </button>
+              </div>
+            </div>
           )}
 
           {phase === "correct" && (
@@ -257,18 +278,41 @@ function InlineTaskSolver({
               )}
 
               {messages.map((msg, i) => (
-                <div key={i} className={cn("rounded-xl px-4 py-3 text-sm leading-relaxed", msg.role === "assistant" ? "bg-accent/10 border border-accent/15" : "bg-fg/5 ml-8")}>
-                  <MathText text={msg.content} />
-                </div>
+                msg.role === "assistant" ? (
+                  <div key={i} className="flex items-start gap-2">
+                    <video
+                      src="/mascot/thinking.mp4"
+                      autoPlay loop muted playsInline
+                      className="h-9 w-9 shrink-0 rounded-full object-cover mt-0.5"
+                      style={{ mixBlendMode: "multiply" }}
+                    />
+                    <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-accent/10 border border-accent/15 flex-1">
+                      <MathText text={msg.content} />
+                    </div>
+                  </div>
+                ) : (
+                  <div key={i} className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-fg/5 ml-8">
+                    <MathText text={msg.content} />
+                  </div>
+                )
               ))}
 
               {streaming && (
-                <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-accent/10 border border-accent/15">
-                  {streamingText ? (
-                    <><MathText text={streamingText} /><span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-fg/60" /></>
-                  ) : (
-                    <span className="text-muted">AI думает...</span>
-                  )}
+                <div className="flex items-start gap-2">
+                  <video
+                    key={streamingText ? "writing" : "investigating"}
+                    src={streamingText ? "/mascot/thinking.mp4" : "/mascot/investigating.mp4"}
+                    autoPlay loop muted playsInline
+                    className="h-9 w-9 shrink-0 rounded-full object-cover mt-0.5"
+                    style={{ mixBlendMode: "multiply" }}
+                  />
+                  <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-accent/10 border border-accent/15 flex-1">
+                    {streamingText ? (
+                      <><MathText text={streamingText} /><span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-fg/60" /></>
+                    ) : (
+                      <span className="text-muted">AI думает...</span>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -287,17 +331,25 @@ function InlineTaskSolver({
                     onChange={(e) => setReply(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendReply()}
                     placeholder="Напиши ответ..."
-                    className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                    disabled={sendingReply}
+                    className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
                   />
-                  <Button onClick={sendReply} disabled={!reply.trim()}>→</Button>
+                  <Button onClick={sendReply} disabled={!reply.trim() || sendingReply} className="gap-1.5">
+                    {sendingReply ? <Loader2 className="h-4 w-4 animate-spin" /> : "→"}
+                  </Button>
                 </div>
               )}
 
-              {!streaming && (
+              {!streaming && !sendingReply && (
                 <div className="flex flex-wrap gap-2">
                   {phase === "dialogue" && (
-                    <button onClick={giveUp} className="rounded-full border border-border px-4 py-2 text-sm text-muted hover:bg-fg/5 transition">
-                      Объяснить сразу
+                    <button
+                      onClick={giveUp}
+                      disabled={givingUp}
+                      className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted hover:bg-fg/5 transition disabled:opacity-50"
+                    >
+                      {givingUp && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {givingUp ? "Загружаем..." : "Объяснить сразу"}
                     </button>
                   )}
                   {canGoNext && (

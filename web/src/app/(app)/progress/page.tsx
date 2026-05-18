@@ -102,7 +102,7 @@ function StreakCard() {
       <div
         className={cn(
           "overflow-hidden transition-all duration-300 ease-in-out",
-          expanded ? "max-h-80 opacity-100 mt-5" : "max-h-0 opacity-0 mt-0",
+          expanded ? "max-h-[600px] opacity-100 mt-5" : "max-h-0 opacity-0 mt-0",
         )}
       >
         {/* Month label + day headers */}
